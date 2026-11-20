@@ -1,0 +1,190 @@
+<title>Round 1 Questions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Caveat:wght@700&display=swap">
+<style>
+/* Layout: one reading column of question cards, grouped by who asked; a sticky footer tallies answers and copies them back to Claude.
+   Single light theme on purpose, matching the mockup and the brand (no dark backgrounds). */
+:root {
+  color-scheme: light;
+  --ground: #EBF0E5;
+  --paper: #FFFFFF;
+  --sage-soft: #DDE5D4;
+  --line: #CAD3C0;
+  --ink: #1F2A24;
+  --ink-2: #48544D;
+  --ink-3: #66726B;
+  --forest: #23402F;
+  --coral: #F46665;
+  --coral-tint: #FDE3E2;
+  --kraft: #C4A27A;
+  --kraft-ink: #3B2C1A;
+  --font: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: "Caveat", "Bradley Hand", cursive;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid #24485A; outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 140px; display: grid; gap: 28px; }
+.strip { height: 10px; background: linear-gradient(90deg, var(--kraft) 0 20%, #F6B79A 20% 40%, var(--coral) 40% 60%, #24485A 60% 80%, var(--forest) 80%); }
+header { display: grid; gap: 10px; padding-top: 22px; }
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+h1 { font-size: 28px; line-height: 1.15; letter-spacing: -.01em; }
+.lede { color: var(--ink-2); max-width: 62ch; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none; color: var(--ink); }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--forest); border-color: var(--forest); color: #fff; }
+
+.group { display: grid; gap: 14px; }
+.group > h2 { font-size: 19px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.group > h2 small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+
+.q { background: var(--paper); border-radius: 14px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 1px 0 rgba(31,42,36,.06), 0 6px 18px -12px rgba(31,42,36,.3); }
+.q.done { box-shadow: inset 0 0 0 2px var(--sage-soft); }
+.q-head { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+.qn { font-weight: 700; font-size: 13px; background: var(--ground); border-radius: 8px; padding: 3px 8px; font-variant-numeric: tabular-nums; }
+.q.done .qn { background: var(--forest); color: #fff; }
+.q h3 { font-size: 16.5px; line-height: 1.35; }
+.why { color: var(--ink-2); font-size: 14px; }
+.see { font-size: 13px; font-weight: 600; color: var(--forest); text-decoration: none; justify-self: start; display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+.see:hover { text-decoration: underline; }
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.opt:hover { background: #F7F9F4; }
+.opt input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--forest); }
+.opt:has(input:checked) { border: 2px solid var(--forest); background: #F4F7F1; padding: 11px 13px; }
+.opt-label { font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.opt-desc { font-size: 13.5px; color: var(--ink-2); font-weight: 400; display: block; margin-top: 2px; }
+.rec { font-family: var(--hand); font-size: 18px; line-height: 1; color: var(--kraft-ink); background: var(--kraft); padding: 3px 10px; border-radius: 4px; }
+.conflict { font-size: 13px; font-weight: 600; background: var(--coral-tint); border: 1.5px solid var(--coral); border-radius: 999px; padding: 2px 10px; justify-self: start; }
+textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); font-size: 14px; resize: vertical; }
+
+.foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--paper); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.foot-in { max-width: 760px; margin: 0 auto; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.tally { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tally small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); }
+#copybox { width: 100%; min-height: 160px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+</style>
+
+<div class="strip" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Content planner · round 1 · Nov 19</p>
+    <h1>Questions before the prototype</h1>
+    <p class="lede">Eleven calls from the PM and the designer. Each one has a recommendation; pick it or choose another, and add a note if you like. "See it" links open the matching screen in the mockup.</p>
+    <div class="toolbar">
+      <a class="btn" href="https://claude.ai/artifact/Vi4BHz7YWo1B7tQK7s5eBr" target="_blank" rel="noopener">Open the mockup</a>
+      <button class="btn" id="accept-all" type="button">Pick every recommendation</button>
+    </div>
+  </header>
+  <div id="groups"></div>
+</div>
+
+<div class="foot">
+  <div class="foot-in">
+    <span class="tally" id="tally">0 of 11 answered<small>Your picks stay in this browser until you send them</small></span>
+    <button class="btn primary" id="copy" type="button">Copy answers for Claude</button>
+  </div>
+</div>
+<div id="copywrap" hidden style="position:fixed;inset:0;background:rgba(31,42,36,.4);z-index:40;display:grid;place-items:center;padding:16px">
+  <div style="background:var(--paper);border-radius:16px;padding:18px;max-width:640px;width:100%;display:grid;gap:12px">
+    <h3>Paste this back into Claude Code</h3>
+    <textarea id="copybox" readonly></textarea>
+    <div style="display:flex;justify-content:flex-end"><button class="btn" id="copyclose" type="button">Close</button></div>
+  </div>
+</div>
+
+<script>
+const MOCK = 'https://claude.ai/artifact/Vi4BHz7YWo1B7tQK7s5eBr';
+const GROUPS = [
+  { title: 'Product manager', sub: 'shapes the seed data and the rules', qs: [
+    { id: 'hooks', q: 'How many hook options per idea?', why: 'The brief says 3 to 5; foundation.md says 2 or 3. Five side by side is a lot on a phone; the mockup scrolls them sideways.', see: 'week',
+      opts: [['3 to 5', 'The later ruling (11/18). Fix the line in foundation.md.', true], ['2 to 3', 'Fewer to judge; Cody gives fewer options.']] },
+    { id: 'styles', q: 'Which content style list do we start with?', why: 'The brief has ten styles, foundation.md has six. Tales From Tech Support is in neither, but "But the chatbot said" is scheduled for next week.', see: 'config',
+      opts: [["The brief's ten, plus Tales From Tech Support", 'Drop "my own ideas" (it is a source, not a style). The list stays editable in Config.', true], ["The brief's ten only", 'Tech support tales get filed under felt-world story or hot take.'], ["foundation.md's six", 'AI-ITA, workplace advice, Old Tech Panics, documenting my work, long-form cuts, my own ideas.']] },
+    { id: 'feelings', q: 'What happens to the old feeling words in ideas.md?', why: 'Rows use understood, laughed, called out, angry, validated, hopeful, proud, often two per idea. The app allows one of your seven.',
+      opts: [['Map each to one of the seven, marked "drafted"', 'understood, validated, angry → seen; laughed, called out → cheeky; hopeful → optimistic; proud → empowered. You confirm each one.', true], ['Leave them blank', 'You or Orca fill them in fresh.']] },
+    { id: 'seedhooks', q: 'Where do the seed hooks come from?', why: "None of next week's seven ideas has hook options on file, and the app never writes your lines.",
+      opts: [["Run Cody's hooks skill once on the seven", 'The prototype feels real, and you get real hooks for the week of Nov 23.', true], ['Labeled placeholders', '"Hook option 1: spoken line goes here."']] },
+    { id: 'week', q: 'Is "This week" the week you make videos, or the week they post?', why: 'Posts for week N+1 are made in week N. The mix math and the labels depend on it.', see: 'week',
+      opts: [['The week I make them, with posting dates shown', 'Header reads "Bank week of Nov 23 · posts Nov 30 to Dec 6", as in the mockup.', true], ['The week they post', 'This week shows what goes live this week.']] },
+    { id: 'home', q: 'What is the home screen before any posts exist?', why: 'The brief makes the dashboard home once posts exist. Until then the dashboard is only the mix.', see: 'week',
+      opts: [['This week', 'Switch to the dashboard after the first post.', true], ['Dashboard', 'Always open on the mix and, later, trends.']] },
+    { id: 'rehook', q: 'Which changes set "re-hook needed"?', why: 'The brief says framing (take or angle), feeling or format. The PM and designer disagree on whether on-camera setup counts as format. Either way, picking a hook or writing your own clears the flag.', see: 'week', conflict: 'PM and designer disagree',
+      opts: [['Feeling, take, angle, content style and on camera', "The PM's reading: switching talking head to felt world changes the opening frame, so hooks need a look.", true], ['Feeling, take, angle and content style', "The designer's reading, and what the mockup does now: on camera is part of the look, not the format."], ['Both of those, plus story', 'Swapping the story behind a video also rebuilds hooks.']] },
+    { id: 'stage', q: '"Scheduled" is both a status and an episode stage. Rename the stage?', why: 'Status "scheduled" means you picked it; stage "scheduled" means the post is queued in TikTok Studio.',
+      opts: [['Rename the stage to "post scheduled"', '', true], ['Keep both as "scheduled"', '']] }
+  ]},
+  { title: 'Designer', sub: 'shapes how the screens behave', qs: [
+    { id: 'filmday', q: 'Film on Wednesday Nov 25, since Thursday is Thanksgiving?', why: 'The mockup puts next week\'s run of show on Wednesday. Your usual film day is Thursday.', see: 'film',
+      opts: [['Yes, Wednesday this week', 'Thursday stays the normal film day after that.', true], ['Thursday as usual', ''], ['Another day', 'Say which in the note.']] },
+    { id: 'rangesave', q: 'When you drag a target range, when does it save?', why: 'Every config change is versioned. Dragging creates a new version.', see: 'dashboard',
+      opts: [['Save straight away, with an undo', 'Fastest on a phone. Small drags in one sitting fold into one version.', true], ['Save only after I confirm', 'A "Save ranges" button appears after you drag.']] },
+    { id: 'proposed', q: 'Should the mix count proposed ideas by default?', why: 'The brief counts scheduled and in-progress ideas. The mockup has a switch, off by default.', see: 'dashboard',
+      opts: [['No, keep the switch off by default', 'Matches the brief. Turn it on on Mondays to see how the pitch would land.', true], ['Yes, count them by default', 'The mix shows the whole pitch, before you pick.']] }
+  ]}
+];
+const ALL = GROUPS.flatMap(g => g.qs);
+const KEY = 'mh-round1-answers';
+let A = {};
+try { A = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { A = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(A)); } catch (_) {} };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function render() {
+  let n = 0;
+  document.getElementById('groups').innerHTML = GROUPS.map(g => `<section class="group"><h2>${g.title} <small>${g.sub}</small></h2>${g.qs.map(q => {
+    n++; const a = A[q.id] || {}; const done = a.pick !== undefined;
+    return `<article class="q ${done ? 'done' : ''}" id="q-${q.id}">
+      <div class="q-head"><span class="qn">${n}</span><div style="display:grid;gap:6px;min-width:0"><h3>${esc(q.q)}</h3><p class="why">${esc(q.why)}</p>
+        ${q.conflict ? `<span class="conflict">${esc(q.conflict)}</span>` : ''}
+        ${q.see ? `<a class="see" href="${MOCK}#${q.see}" target="_blank" rel="noopener">See it in the mockup →</a>` : ''}</div></div>
+      <div class="opts" role="radiogroup" aria-label="${esc(q.q)}">${q.opts.map(([l, d, rec], i) => `
+        <label class="opt"><input type="radio" name="${q.id}" id="${q.id}-${i}" value="${i}" ${a.pick === i ? 'checked' : ''}>
+          <span><span class="opt-label">${esc(l)}${rec ? '<span class="rec">recommended</span>' : ''}</span>${d ? `<span class="opt-desc">${esc(d)}</span>` : ''}</span></label>`).join('')}
+      </div>
+      <textarea id="${q.id}-note" data-note="${q.id}" placeholder="Note (optional)" rows="1">${esc(a.note || '')}</textarea>
+    </article>`; }).join('')}</section>`).join('');
+  tally();
+}
+function tally() {
+  const done = ALL.filter(q => A[q.id] && A[q.id].pick !== undefined).length;
+  document.getElementById('tally').innerHTML = `${done} of ${ALL.length} answered<small>Your picks stay in this browser until you send them</small>`;
+  ALL.forEach(q => { const el = document.getElementById('q-' + q.id); el && el.classList.toggle('done', !!(A[q.id] && A[q.id].pick !== undefined)); });
+}
+document.addEventListener('change', e => {
+  if (e.target.type === 'radio') { (A[e.target.name] ||= {}).pick = +e.target.value; save(); tally(); }
+});
+document.addEventListener('input', e => {
+  const k = e.target.dataset && e.target.dataset.note; if (!k) return; (A[k] ||= {}).note = e.target.value; save();
+});
+document.getElementById('accept-all').addEventListener('click', () => {
+  ALL.forEach(q => { const i = q.opts.findIndex(o => o[2]); (A[q.id] ||= {}); if (A[q.id].pick === undefined) A[q.id].pick = i; });
+  save(); render(); toast('Recommendations picked for every open question. Change any you disagree with.');
+});
+function answersText() {
+  return 'Round 1 answers\n' + ALL.map((q, n) => {
+    const a = A[q.id] || {}; const o = a.pick !== undefined ? q.opts[a.pick][0] : '(no answer yet)';
+    return `${n + 1}. ${q.q}\n   → ${o}${a.note ? `\n   Note: ${a.note}` : ''}`;
+  }).join('\n');
+}
+let tt;
+function toast(m) { let t = document.getElementById('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 3000); }
+document.getElementById('copy').addEventListener('click', () => {
+  const txt = answersText();
+  const fallback = () => { const w = document.getElementById('copywrap'); w.hidden = false; const b = document.getElementById('copybox'); b.value = txt; b.focus(); b.select(); };
+  try { navigator.clipboard.writeText(txt).then(() => toast('Copied. Paste it into Claude Code.'), fallback); } catch (_) { fallback(); }
+});
+document.getElementById('copyclose').addEventListener('click', () => { document.getElementById('copywrap').hidden = true; });
+render();
+</script>

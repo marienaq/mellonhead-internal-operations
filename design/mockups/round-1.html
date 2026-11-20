@@ -1,0 +1,1137 @@
+<title>Mellonhead Content Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap">
+<style>
+/* Layout: phone-first single column with a bottom tab bar; on laptops a left rail and a centered work column.
+   Paper-and-felt lives in the frame (torn strips, kraft tags, the fern); text always sits on white or pale sage.
+   Single light theme by choice: the brand rules out dark backgrounds. */
+:root {
+  color-scheme: light;
+  --ground: #EBF0E5;      /* pale sage page ground */
+  --paper: #FFFFFF;       /* cards, inputs */
+  --sage: #B7C4A8;
+  --sage-soft: #DDE5D4;
+  --line: #CAD3C0;
+  --ink: #1F2A24;
+  --ink-2: #48544D;       /* secondary text, 7.6:1 on white */
+  --ink-3: #66726B;       /* captions, 4.9:1 on white */
+  --coral: #F46665;       /* the one thing that needs attention */
+  --coral-tint: #FDE3E2;
+  --peach: #F6B79A;
+  --forest: #23402F;
+  --bluegreen: #24485A;
+  --moss: #7E8F3A;
+  --plum: #5B3F63;
+  --lavender: #9D88B8;
+  --kraft: #C4A27A;
+  --kraft-ink: #3B2C1A;
+  --font: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+  --r: 14px;
+  --r-sm: 9px;
+  --shadow: 0 1px 0 rgba(31,42,36,.06), 0 6px 18px -10px rgba(31,42,36,.25);
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--bluegreen); outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* ---------- App shell ---------- */
+.app { min-height: 100%; }
+.rail { display: none; }
+main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 calc(100px + env(safe-area-inset-bottom, 0px));
+  max-width: 860px; margin: 0 auto;
+}
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--paper); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+}
+.tab {
+  min-height: 56px; border: 0; background: none; border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 12px; font-weight: 500; color: var(--ink-3);
+}
+.tab svg { width: 24px; height: 24px; }
+.tab[aria-current="page"] { color: var(--forest); font-weight: 700; }
+.tab[aria-current="page"] .tab-ico { background: var(--sage-soft); }
+.tab-ico { width: 52px; height: 30px; border-radius: 15px; display: grid; place-items: center; }
+
+@media (min-width: 960px) {
+  .app { display: grid; grid-template-columns: 236px 1fr; }
+  .tabbar { display: none; }
+  .rail {
+    display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh;
+    padding: 0 14px 24px; background: var(--paper); border-right: 1px solid var(--line);
+  }
+  .rail .strip { margin: 0 -14px 14px; }
+  .rail-brand { font-weight: 700; font-size: 17px; padding: 4px 10px 14px; line-height: 1.2; }
+  .rail-brand small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-3); }
+  .rail button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border: 0; border-radius: 10px; background: none; text-align: left; color: var(--ink-2); font-weight: 500; }
+  .rail button svg { width: 22px; height: 22px; }
+  .rail button[aria-current="page"] { background: var(--sage-soft); color: var(--forest); font-weight: 700; }
+  .rail-foot { margin-top: auto; font-size: 12px; color: var(--ink-3); padding: 0 10px; }
+  main { padding-bottom: 64px; width: 100%; }
+}
+
+/* ---------- Paper & felt frame pieces ---------- */
+.strip { height: 26px; background-repeat: repeat-x; background-size: auto 26px; background-image: var(--strip); margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); }
+.screen-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 14px 0 16px; flex-wrap: wrap; }
+.screen-head h1 { font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; }
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+.tag {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--hand); font-weight: 700; font-size: 20px; line-height: 1; color: var(--kraft-ink);
+  background: var(--kraft); padding: 5px 12px 5px 22px; border-radius: 4px 9px 9px 4px;
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%);
+}
+.tag::before { content: ""; position: absolute; left: 11px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 1.5px rgba(59,44,26,.45); }
+.tag.sm { font-size: 17px; padding: 3px 10px 3px 20px; }
+.washi { position: relative; }
+.washi::after { content: ""; position: absolute; top: -9px; right: 22px; width: 64px; height: 18px; background: var(--peach); opacity: .8; transform: rotate(3deg); border-radius: 2px; }
+
+/* ---------- Common bits ---------- */
+.card { background: var(--paper); border-radius: var(--r); box-shadow: var(--shadow); }
+.section { display: grid; gap: 12px; margin-top: 26px; }
+.section > h2 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.count-pill { font-size: 12px; font-weight: 600; background: var(--sage-soft); color: var(--ink-2); border-radius: 999px; padding: 2px 9px; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.primary { background: var(--forest); border-color: var(--forest); color: #fff; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn.sm { min-height: 40px; padding: 0 12px; font-size: 13px; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary:hover { background: #1b3325; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: var(--ground); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.flag { display: inline-flex; align-items: center; gap: 6px; background: var(--coral); color: var(--ink); font-weight: 700; font-size: 12.5px; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.ok { display: inline-flex; align-items: center; gap: 6px; background: var(--sage-soft); color: var(--forest); font-weight: 600; font-size: 12.5px; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.drafted { font-size: 11px; font-weight: 600; color: var(--ink-3); border: 1px dashed var(--ink-3); border-radius: 999px; padding: 0 7px; line-height: 18px; white-space: nowrap; }
+.muted { color: var(--ink-3); }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; word-break: break-all; }
+.example-note { font-size: 12px; color: var(--ink-3); margin-top: 28px; text-align: center; }
+
+/* ---------- This week ---------- */
+.mixstrip { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 12px 14px; border-radius: var(--r); background: var(--paper); box-shadow: var(--shadow); border: 0; width: 100%; text-align: left; scrollbar-width: none; }
+.mixstrip::-webkit-scrollbar { display: none; }
+.mixstrip .lbl { font-weight: 700; font-size: 13px; white-space: nowrap; margin-right: 2px; }
+.idea-card { padding: 14px 14px 10px; display: grid; gap: 10px; }
+.idea-card h3 { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.idea-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.hookline { font-size: 13.5px; color: var(--ink-2); border-left: 3px solid var(--sage); padding: 2px 0 2px 10px; }
+.hookline.pick { border-left-color: var(--kraft); color: var(--kraft-ink); font-weight: 600; }
+.card-actions { display: flex; gap: 4px; border-top: 1px solid var(--ground); padding-top: 6px; margin: 0 -6px; flex-wrap: wrap; }
+.card-actions .btn { border-color: transparent; background: none; min-height: 42px; padding: 0 10px; color: var(--ink-2); }
+.card-actions .btn:hover { background: var(--ground); }
+.card-actions .open { margin-left: auto; color: var(--forest); }
+.rehook-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink); background: var(--coral-tint); border: 1.5px solid var(--coral); border-radius: 999px; padding: 2px 10px; }
+.moved { padding: 10px 14px; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.moved span { min-width: 0; font-size: 14px; }
+.idea-grid { display: grid; gap: 12px; }
+@media (min-width: 700px) { .idea-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- Idea ---------- */
+.back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 0; background: none; color: var(--forest); font-weight: 600; padding: 0; margin-top: 8px; }
+.idea-title { font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; }
+.statusrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.pillbtn { min-height: 36px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 0 12px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.panel { padding: 4px 0; }
+.field { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 8px 16px; border: 0; background: none; text-align: left; border-bottom: 1px solid var(--ground); }
+.field:last-child { border-bottom: 0; }
+.field.stack { grid-template-columns: 1fr auto; row-gap: 4px; }
+.field.stack .k { grid-column: 1; }
+.field.stack .v { grid-column: 1; grid-row: 2; }
+.field.stack .chev { grid-column: 2; grid-row: 1 / span 2; }
+.field:hover { background: #F7F9F4; }
+.field .k { font-size: 13px; color: var(--ink-3); font-weight: 500; }
+.field .v { font-weight: 600; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.field .v.long { font-weight: 400; }
+.field .chev { color: var(--ink-3); }
+.field.changed { animation: flash 1.2s ease; }
+@keyframes flash { from { background: var(--sage-soft); } to { background: transparent; } }
+.summary-block { padding: 14px 16px; display: grid; gap: 10px; }
+.rehook { display: grid; gap: 10px; padding: 14px 16px; border-radius: var(--r); background: var(--coral-tint); border: 2px solid var(--coral); }
+.rehook strong { font-size: 15px; }
+.hooks { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 10px; margin: 0 -2px; }
+@media (min-width: 700px) { .hooks { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); overflow: visible; } }
+.hook { scroll-snap-align: start; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 2px solid transparent; min-width: 0; }
+.hook.chosen { border-color: var(--forest); }
+.hook.stale { opacity: .78; }
+.hook .spoken { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.hook dl { margin: 0; display: grid; gap: 6px; font-size: 13px; }
+.hook dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.hook dd { margin: 0; }
+.hook .btn { margin-top: auto; width: 100%; }
+.hook .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.beats { margin: 0; padding: 0 0 0 0; list-style: none; counter-reset: b; display: grid; gap: 8px; }
+.beats li { counter-increment: b; display: grid; grid-template-columns: 26px 1fr; gap: 8px; }
+.beats li::before { content: counter(b); font-weight: 700; font-size: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--sage-soft); color: var(--forest); display: grid; place-items: center; margin-top: 1px; }
+.note { padding: 12px 16px; border-bottom: 1px solid var(--ground); display: grid; gap: 4px; }
+.note:last-child { border-bottom: 0; }
+.note .who { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.gut { padding: 12px 16px; display: grid; gap: 10px; }
+.gutrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gutrow .person { font-weight: 600; }
+.gutrow .person small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12px; }
+.seg { display: inline-flex; background: var(--ground); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { min-height: 38px; min-width: 44px; padding: 0 10px; border: 0; background: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--forest); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+/* ---------- Sheet ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(31,42,36,.38); z-index: 40; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--paper);
+  border-radius: 20px 20px 0 0; max-height: 82vh; overflow: auto;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  box-shadow: 0 -10px 30px rgba(0,0,0,.15);
+}
+@media (min-width: 700px) { .sheet { left: 50%; right: auto; width: 520px; transform: translateX(-50%); bottom: 24px; border-radius: 20px; } }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+.sheet h3 { font-size: 18px; margin-bottom: 4px; }
+.sheet .hint { font-size: 13px; color: var(--ink-3); margin-bottom: 12px; }
+.optlist { display: grid; gap: 6px; }
+.opt { min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); text-align: left; padding: 0 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.opt[aria-pressed="true"] { border: 2px solid var(--forest); background: #F4F7F1; }
+.opt small { font-weight: 400; color: var(--ink-3); }
+textarea, input[type="text"] { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); font-size: 15px; line-height: 1.45; }
+textarea { min-height: 110px; resize: vertical; }
+.sheet-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 50; background: var(--ink); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; max-width: calc(100% - 32px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+@media (min-width: 960px) { .toast { bottom: 28px; } }
+
+/* ---------- Dashboard / mix ---------- */
+.placeholder { padding: 18px; display: grid; grid-template-columns: 1fr; gap: 14px; overflow: hidden; }
+.placeholder .ph-body { display: grid; gap: 8px; min-width: 0; }
+.placeholder h2 { font-size: 18px; }
+.ph-row { display: flex; gap: 16px; align-items: center; }
+.ph-chart { height: 74px; border-radius: 10px; border: 1.5px dashed var(--line); position: relative; overflow: hidden; }
+.ph-chart svg { width: 100%; height: 100%; display: block; }
+.fern { width: 72px; height: 96px; flex: none; }
+.dims { display: grid; gap: 12px; }
+@media (min-width: 760px) { .dims { grid-template-columns: 1fr 1fr; align-items: start; } }
+.dim { padding: 14px 14px 8px; display: grid; gap: 4px; min-width: 0; }
+.dim-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dim-head h3 { font-size: 15.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.win { font-size: 11px; font-weight: 700; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .05em; }
+.dim-note { font-size: 12.5px; color: var(--ink-3); }
+.mrow { padding: 10px 0 6px; display: grid; gap: 6px; border-top: 1px solid var(--ground); }
+.mrow:first-of-type { border-top: 0; }
+.mrow-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mrow-head .lab { font-weight: 600; font-size: 14px; }
+.mrow-head .cnt { font-weight: 700; font-size: 15px; }
+.mrow-head .tgt { font-size: 12.5px; color: var(--ink-3); }
+.mrow-head .flag, .mrow-head .ok { margin-left: auto; font-size: 11.5px; padding: 1px 8px; }
+.track { position: relative; height: 34px; margin: 0 4px; touch-action: none; }
+.track .base { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 3px; background: var(--ground); }
+.track .band { position: absolute; top: 9px; height: 16px; border-radius: 8px; background: var(--sage); }
+.track .tick { position: absolute; top: 15px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--line); }
+.track .marker { position: absolute; top: 5px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--forest); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; z-index: 2; pointer-events: none; transition: left .15s; }
+.mrow.bad .marker { background: var(--coral); color: var(--ink); }
+.track .h { position: absolute; top: -5px; width: 44px; height: 44px; margin-left: -22px; border: 0; background: none; padding: 0; z-index: 3; touch-action: none; cursor: ew-resize; }
+.track .h::before { content: ""; position: absolute; left: 18px; top: 9px; width: 8px; height: 26px; border-radius: 4px; background: var(--paper); border: 2px solid var(--forest); }
+.track .h:focus-visible { outline: none; }
+.track .h:focus-visible::before { outline: 3px solid var(--bluegreen); outline-offset: 2px; }
+.scale { position: relative; height: 14px; margin: 0 4px; font-size: 10.5px; color: var(--ink-3); }
+.scale span { position: absolute; transform: translateX(-50%); }
+.side-counts { font-size: 13px; color: var(--ink-2); padding: 6px 0 4px; }
+.switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; border: 0; background: none; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 0; }
+.switch .sw { width: 42px; height: 24px; border-radius: 12px; background: var(--line); position: relative; transition: background .15s; flex: none; }
+.switch .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch[aria-checked="true"] .sw { background: var(--forest); }
+.switch[aria-checked="true"] .sw::after { left: 21px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-3); align-items: center; }
+.legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+
+/* ---------- Config ---------- */
+.jump { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.jump::-webkit-scrollbar { display: none; }
+.jump a { flex: none; min-height: 38px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-size: 13px; font-weight: 600; }
+.cfg { padding: 4px 0; }
+.cfg-item { padding: 14px 16px; border-bottom: 1px solid var(--ground); display: grid; gap: 6px; }
+.cfg-item:last-child { border-bottom: 0; }
+.cfg-item .k { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.editable { border: 0; background: none; text-align: left; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; width: calc(100% + 16px); display: block; line-height: 1.5; }
+.editable:hover { background: #F7F9F4; }
+.editable .pen { color: var(--ink-3); font-size: 12px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
+.pillar-row { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start; }
+.pillar-row .dot { margin-top: 7px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipbtn { min-height: 38px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 0 14px; font-size: 13.5px; font-weight: 500; }
+.chipbtn.add { border-style: dashed; color: var(--forest); font-weight: 600; }
+.chipbtn input { border: 0; padding: 0; width: 9em; font-size: 13.5px; background: none; }
+.chipbtn input:focus { outline: none; }
+.range-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--ground); }
+.range-row:last-child { border-bottom: 0; }
+.range-row .lab { font-size: 14px; font-weight: 500; min-width: 0; }
+.range-row .lab small { color: var(--ink-3); display: block; font-size: 12px; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font-weight: 700; font-size: 17px; line-height: 1; }
+.stepper output { min-width: 26px; text-align: center; font-weight: 700; }
+.stepper .to { color: var(--ink-3); font-size: 12px; margin: 0 4px; }
+.versions { list-style: none; margin: 0; padding: 0; }
+.versions li { border-bottom: 1px solid var(--ground); }
+.versions li:last-child { border-bottom: 0; }
+.ver { width: 100%; border: 0; background: none; text-align: left; padding: 12px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; min-height: 56px; }
+.ver .vn { font-weight: 700; font-size: 13px; background: var(--ground); border-radius: 8px; padding: 4px 8px; }
+.ver.current .vn { background: var(--forest); color: #fff; }
+.ver .vd { font-size: 12.5px; color: var(--ink-3); }
+.diff { padding: 0 16px 14px; display: grid; gap: 8px; font-size: 13.5px; }
+.diff .was { color: var(--ink-3); text-decoration: line-through; text-decoration-color: rgba(72,84,77,.5); }
+
+/* ---------- Film mode ---------- */
+.film { font-size: 17px; }
+.days { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.days::-webkit-scrollbar { display: none; }
+.day { flex: none; min-height: 60px; min-width: 84px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; padding: 6px 12px; line-height: 1.15; font-weight: 600; }
+.day small { font-weight: 500; font-size: 12px; color: var(--ink-3); }
+.day[aria-pressed="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
+.day[aria-pressed="true"] small { color: #D6E2D0; }
+.progress { height: 10px; border-radius: 5px; background: var(--paper); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+.progress i { display: block; height: 100%; background: var(--moss); border-radius: 5px; transition: width .2s; }
+.film-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.block { display: grid; gap: 12px; margin-top: 26px; }
+.block-head { display: flex; align-items: center; gap: 10px; }
+.block-head h2 { font-size: 21px; font-weight: 700; }
+.block-head .tag { font-size: 22px; }
+.setup { font-size: 14px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.setup::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.vlist { display: grid; gap: 14px; }
+.vid { padding: 18px; display: grid; gap: 16px; position: relative; }
+.vid.dragging { box-shadow: 0 16px 40px -10px rgba(31,42,36,.45); outline: 2px solid var(--forest); z-index: 5; }
+.vid-top { display: flex; align-items: flex-start; gap: 10px; }
+.vid-top .tt { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.slate { font-weight: 800; font-size: 15px; letter-spacing: .06em; background: var(--kraft); color: var(--kraft-ink); padding: 4px 10px; border-radius: 6px; justify-self: start; }
+.vid h3 { font-size: 20px; font-weight: 700; line-height: 1.25; }
+.handle { flex: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; touch-action: none; cursor: grab; color: var(--ink-2); }
+.handle:active { cursor: grabbing; }
+.say { font-size: 25px; font-weight: 700; line-height: 1.28; letter-spacing: -.01em; }
+.say-l { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.film-grid { display: grid; gap: 14px; }
+@media (min-width: 640px) { .film-grid.two { grid-template-columns: 1fr 1fr; } }
+.film-grid .v { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.film .beats { gap: 10px; }
+.film .beats li { font-size: 17px; grid-template-columns: 32px 1fr; }
+.film .beats li::before { width: 28px; height: 28px; font-size: 14px; }
+.edit-notes { font-size: 15px; background: var(--ground); border-radius: 10px; padding: 10px 12px; }
+.filmed-btn { min-height: 68px; width: 100%; border-radius: 16px; border: 2.5px solid var(--forest); background: var(--paper); color: var(--forest); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.filmed-btn .box { width: 34px; height: 34px; border-radius: 9px; border: 2.5px solid var(--forest); display: grid; place-items: center; }
+.vid.done .filmed-btn { background: var(--forest); color: #fff; }
+.vid.done .filmed-btn .box { background: #fff; color: var(--forest); border-color: #fff; }
+.vid.done { background: #F4F7F1; }
+.vid.done .detail { display: none; }
+.vid.done h3 { color: var(--ink-2); }
+.nohook { background: var(--coral-tint); border: 2px solid var(--coral); border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.focusnav { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-top: 14px; background: var(--ground); padding: 8px 0; }
+@media (min-width: 960px) { .focusnav { bottom: 0; } }
+.focusnav .btn { min-height: 60px; font-size: 17px; }
+.empty { padding: 28px 20px; text-align: center; display: grid; justify-items: center; gap: 10px; }
+</style>
+
+<div class="app" id="app">
+  <nav class="rail" aria-label="Main">
+    <div class="strip" aria-hidden="true"></div>
+    <div class="rail-brand">Mellonhead<small>Content planner</small></div>
+    <div id="railnav" style="display:grid;gap:4px"></div>
+    <div class="rail-foot">Round 1 mockup · example data</div>
+  </nav>
+  <main id="main"></main>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<div id="overlay"></div>
+
+<script>
+/* ================= Icons ================= */
+const I = {
+  week: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  dash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="7" cy="17" r="2" fill="currentColor"/></svg>',
+  film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/></svg>',
+  config: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4v6M5 14v6M12 4v3M12 11v9M19 4v9M19 17v3"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="9" r="2"/><circle cx="19" cy="15" r="2"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  chev: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  grip: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>',
+  check: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  alert: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6M12 17v.5"/></svg>'
+};
+
+/* ================= Torn paper strip (frame texture, generated once) ================= */
+(function makeStrip(){
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const W = 240, H = 26;
+  const torn = (y, amp) => { let d = `M0 0 L0 ${y}`; for (let x = 0; x <= W; x += 6) d += ` L${x} ${(y + (rnd()-.5)*amp).toFixed(1)}`; return d + ` L${W} 0 Z`; };
+  const layers = [['#C4A27A',24,3],['#F6B79A',19,4],['#F46665',14,3],['#24485A',9,3],['#23402F',5,2]];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><defs><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .18 0'/><feComposite in2='SourceGraphic' operator='in'/></filter></defs>${layers.map(([c,y,a])=>`<path d='${torn(y,a)}' fill='${c}'/>`).join('')}<rect width='${W}' height='${H}' fill='#000' filter='url(#n)' opacity='.9'/></svg>`;
+  document.documentElement.style.setProperty('--strip', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+})();
+function fern(color = '#7E8F3A') {
+  let s = `<svg class="fern" viewBox="0 0 72 96" aria-hidden="true"><path d="M36 94 C36 70 37 40 40 6" stroke="${color}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+  for (let i = 0; i < 9; i++) {
+    const y = 84 - i * 9, len = 26 - i * 2.4, x = 36 + i * 0.45;
+    s += `<ellipse cx="${x - len/2}" cy="${y - 3}" rx="${len/2}" ry="3.6" fill="${color}" transform="rotate(-18 ${x} ${y})" opacity=".92"/>`;
+    s += `<ellipse cx="${x + len/2}" cy="${y - 3}" rx="${len/2}" ry="3.6" fill="${color}" transform="rotate(18 ${x} ${y})" opacity=".92"/>`;
+  }
+  return s + `<ellipse cx="40" cy="6" rx="3" ry="5" fill="${color}"/></svg>`;
+}
+
+/* ================= Option lists and positioning (from foundation.md) ================= */
+const PILLARS = [
+  { name: 'Value', color: 'var(--forest)', desc: 'Programs that build AI capability and drive business results. My programs in the wild live here, often as a series.', carries: 'Programs where teams shape it themselves' },
+  { name: 'Building', color: 'var(--bluegreen)', desc: "Building in the open: what I'm building right now, how, and what I'm struggling with.", carries: "I'm shaping mine, out loud" },
+  { name: 'Messy', color: 'var(--moss)', desc: 'AI at work is messy: second-order effects, the little wins that show you\'re headed the right way, how to handle hard issues as they come.', carries: "What happens when it's done to people, and the small wins when it isn't" },
+  { name: 'Perspective', color: 'var(--plum)', desc: 'The bigger picture: technical innovation, upskilling and public policy, who gets left behind.', carries: 'Policy and upskilling decide who gets to shape it' },
+  { name: 'Grounded', color: 'var(--lavender)', desc: 'Staying grounded: I am more than my work; how I stay grounded and energized doing this work. Identity deconstruction lives here.', carries: "You're more than the work AI is changing" }
+];
+const pillarColor = n => (PILLARS.find(p => p.name === n) || {}).color || 'var(--line)';
+const OPTS = {
+  type: ['authority', 'storyline', 'personality', 'follow the signal'],
+  feeling: ['empowered', 'seen', 'inspired', 'motivated', 'cheeky', 'curious', 'optimistic'],
+  style: ['listicle', 'AI-ITA', 'workplace advice', 'Old Tech Panics', 'documenting my work', 'show and tell', 'hot take', 'skit', 'felt-world story', 'long-form cut'],
+  onCamera: ['talking head', 'skit', 'show and tell', 'felt world', 'outdoors', 'narrator'],
+  voice: ['Mariena', 'narrator', 'Fox (tech support)'],
+  harmHelp: ['harm', 'help', 'neutral'],
+  cta: ['none', 'follow', 'Mellonmail', 'resource landing page', 'GitHub link', 'comment question'],
+  hookFormat: ['question', 'bold claim', 'story in motion', 'reframe', 'visual reveal', 'stakes'],
+  status: ['proposed', 'scheduled', 'backlog', 'rejected', 'in progress', 'published'],
+  stage: ['storyboarded', 'take added', 'filmed', 'rough cut', 'scheduled', 'posted']
+};
+const TAKES = {
+  2: 'Everyone says "put a human in the loop." People need guidance, not just policies.',
+  3: 'Organizations need to assign dollar values to tasks and workflows, not one giant bucket of headcount costs.',
+  1: "Yes, it's scary and uncomfortable. Grieve, then get started. Do it scared.",
+  10: "If you don't value what your people do, your AI efforts will fail.",
+  13: "AI doesn't need to be your everything. It shouldn't.",
+  9: 'An experimentation mindset.'
+};
+const STORIES = {
+  grant: 'Grant agents for a philanthropy team',
+  letgo: 'Being let go, 12 months of identity crisis, finding the thread'
+};
+
+/* ================= Seed ideas: bank week of 2026-11-23 (example data) ================= */
+const H = (spoken, onscreen, frame, format, payoff, rec) => ({ spoken, onscreen, frame, format, payoff, rec: !!rec });
+const IDEAS = [
+  {
+    id: 'tell-boss', title: 'Automated 60% of my job. Do I tell my boss?', status: 'scheduled', stage: 'storyboarded',
+    summary: "Workplace advice letter: someone automated most of their role and is weighing whether to tell their manager. My advice: tell them, and bring the dollar value of the time you freed.",
+    pillar: 'Messy', type: 'authority', style: 'workplace advice', onCamera: 'talking head', voice: 'Mariena', feeling: 'seen', harmHelp: 'help',
+    cta: 'comment question', ctaLink: '"What would you do?"', take: 3, story: null, series: 'Workplace advice, episode 2', safety: 'clear',
+    source: 'marketing/tiktok/story-formats/workplace-advice/stories/2026-11-15-automated-sixty-percent-tell-boss.md',
+    hooks: [
+      H('Someone automated 60% of their job and wants to know if they should tell their boss.', 'Automated 60% of my job. Tell my boss?', 'Me holding the letter up to camera, eyebrows raised', 'question', 'Verdict at 0:08', true),
+      H('If you automated most of your job, the worst move is staying quiet.', "Don't hide it.", 'Close-up, finger to lips, then a head shake', 'bold claim', 'Reason at 0:05'),
+      H('Dear Mariena: I automated my job and my boss has no idea.', 'Dear Mariena...', 'Kraft envelope opening on the desk, overhead', 'story in motion', 'Letter ends 0:12'),
+      H("Your boss doesn't need to know you automated your job. They need to know what it's worth.", 'What is your time worth?', 'Me sliding a price tag across the desk', 'reframe', 'Dollar value at 0:06')
+    ],
+    chosen: null,
+    beats: ['Read the letter: 60% automated, boss has no idea, afraid of being "found out"', 'My take, in my words: put a dollar value on the work you freed, the way customer service prices an inquiry', 'If it were me: tell them, with a plan for the hours you got back', 'Ask: what would you do?'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'not sure' }, gutNote: 'Paloma wants more plot. Open on the letter, not the advice.',
+    look: { setup: 'Desk, camera left', outfit: 'Green cardigan', location: 'Office corner', props: 'Letter on kraft paper', edit: 'Captions on. Letter text as an on-screen card. Cut the pause before the verdict.' },
+    notes: [
+      { who: 'You in #tiktok, Nov 17', text: "Love this one. Make sure the advice isn't \"hide it.\"" },
+      { who: 'Orca in #tiktok, Nov 18', text: "Mark's storyboard is in the thread. Four hooks from Cody, recommended one first." }
+    ],
+    drafted: ['pillar', 'type', 'feeling', 'take', 'cta'], slate: 'A1 TELL BOSS'
+  },
+  {
+    id: 'chatbot-boss', title: 'My boss trusts the chatbot over us', status: 'scheduled', stage: 'take added',
+    summary: 'A letter from someone whose boss pastes the team\'s analysis into ChatGPT and goes with the bot. My advice: bring one decision where the bot was confidently wrong, and offer a review step.',
+    pillar: 'Messy', type: 'authority', style: 'workplace advice', onCamera: 'talking head', voice: 'Mariena', feeling: 'seen', harmHelp: 'harm',
+    cta: 'none', take: 2, story: null, series: 'Workplace advice, episode 3', safety: 'clear',
+    source: 'marketing/tiktok/story-formats/workplace-advice/stories/2026-11-15-boss-trusts-chatbot-over-team.md',
+    hooks: [
+      H('My boss trusts the chatbot over his own team. What do I do?', 'Boss trusts ChatGPT > us', 'Me reading the letter, slow look up to camera', 'question', 'Advice at 0:07', true),
+      H('Your boss picked the chatbot over you. Here is how you win that back.', 'Win it back', 'Me crossing my arms, then a grin', 'stakes', '0:05')
+    ],
+    chosen: 0,
+    beats: ['Read the letter', 'My take: "Everyone says put a human in the loop. People need guidance, not just policies."', 'If it were me: one decision where the bot was confidently wrong, and a review step', 'Close: your expertise is the loop'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'yes' }, gutNote: '',
+    look: { setup: 'Desk, camera left', outfit: 'Green cardigan', location: 'Office corner', props: 'Letter on kraft paper', edit: 'Captions on. Punch in on "confidently wrong."' },
+    notes: [{ who: 'You in #tiktok, Nov 19 (voice take)', text: "The human in the loop isn't a checkbox. It's somebody who knows what good looks like." }],
+    drafted: ['harmHelp'], slate: 'A2 BOSS BOT'
+  },
+  {
+    id: 'husband', title: "AI-ITA: My coworker husband says 'just ask AI'", status: 'scheduled', stage: 'storyboarded',
+    summary: 'Read a real post: her husband, also her coworker, answers every question with "just ask AI." My verdict, then ChatGPT\'s.',
+    pillar: 'Messy', type: 'personality', style: 'AI-ITA', onCamera: 'talking head', voice: 'Mariena', feeling: 'cheeky', harmHelp: 'harm',
+    cta: 'none', take: 13, story: null, series: 'AI-ITA', safety: 'clear',
+    source: 'marketing/tiktok/story-formats/aita-ai/stories/2026-11-15-husband-says-ask-ai.md',
+    hooks: [
+      H("My husband is my coworker, and his answer to everything is 'just ask AI.'", 'AI-ITA: Am I the AI-hole?', 'Peg-person judge on the desk, gavel down', 'story in motion', 'Verdict at 0:15', true),
+      H('Is he the AI-hole? Let\'s find out.', 'Is he the AI-hole?', 'Me squinting at my phone', 'question', '0:15')
+    ],
+    chosen: 0,
+    beats: ['Read the post, in a dramatic voice', "My verdict: not the AI-hole, but close", 'My take: AI doesn\'t need to be your everything', "ChatGPT's verdict, read flat"],
+    gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' }, gutNote: 'Alex may want the "how." Add one line on when asking AI is the right call.',
+    look: { setup: 'Couch, camera straight on', outfit: 'Green cardigan', location: 'Living room', props: 'Peg-person judge, tiny felt gavel', edit: "Split screen for ChatGPT's verdict. Gavel sound on the cut." },
+    notes: [], drafted: [], slate: 'A3 HUSBAND'
+  },
+  {
+    id: 'context', title: 'Copilot has your data. So why are its answers so generic?', status: 'in progress', stage: 'take added',
+    summary: 'Walk through the scope brief I generated for the agent course: what I gave it (references, call transcripts, who it was for) and why the result was good.',
+    pillar: 'Value', type: 'authority', style: 'show and tell', onCamera: 'show and tell', voice: 'Mariena', feeling: 'empowered', harmHelp: 'help',
+    cta: 'Mellonmail', ctaLink: 'Brief template in this week\'s Mellonmail', take: null, story: null, series: '', safety: 'blinded',
+    source: 'marketing/tiktok/own-ideas/stories/2026-11-15-good-outputs-take-context.md',
+    hooks: [
+      H('Copilot has all your data. So why are its answers so generic?', 'Same data. Better brief.', 'Split screen: generic answer next to the scope brief', 'question', 'The difference at 0:10', true),
+      H('I gave AI five things before I asked for anything.', '5 things first', 'Five kraft tags fanned on the desk', 'listicle', '0:04')
+    ],
+    chosen: 0,
+    beats: ['Show the generic answer', 'Show what I gave it: references, transcripts, who it\'s for', 'Show the brief, with stakeholder quotes (anonymized on screen)', 'Context makes the result'],
+    gut: { Dawn: 'not sure', Alex: 'yes', Paloma: 'not sure' }, gutNote: '',
+    look: { setup: 'Desk, camera left', outfit: 'Coral blouse', location: 'Office corner', props: 'Laptop, printed scope brief (anonymized)', edit: 'Screen recording inserts from context-demo. Blur any client name.' },
+    notes: [], drafted: ['take'], slate: 'B1 CONTEXT'
+  },
+  {
+    id: 'skills-stuck', title: 'The agents barely got used. The skills stuck.', status: 'scheduled', stage: 'storyboarded',
+    summary: 'A team I worked with built grant-writing agents. They barely use the agents, but the skills stuck and the work changed from reactive to a pipeline.',
+    pillar: 'Value', type: 'storyline', style: 'documenting my work', onCamera: 'talking head', voice: 'Mariena', feeling: 'optimistic', harmHelp: 'help',
+    cta: 'none', take: 10, story: 'grant', series: 'Unfolding now: the agent course, episode 3', safety: 'blinded',
+    source: 'Story bank: grant agents for a philanthropy team',
+    hooks: [
+      H('We built a team AI agents. They barely use them. And it worked anyway.', 'The agents flopped. The team didn\'t.', 'Me shrugging at a laptop, then a slow smile', 'reframe', 'Result at 0:09', true),
+      H('More grants by October than all of last year, and the agents had almost nothing to do with it.', 'It wasn\'t the agents', 'Paper stack of grant folders, one by one', 'stakes', '0:06')
+    ],
+    chosen: 0,
+    beats: ['The setup: a team I worked with, grant agents', 'The twist: they barely use the agents', 'What changed: AI in the daily workflow, reactive to a pipeline', 'My take: if you don\'t value what your people do, your AI efforts fail'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'yes' }, gutNote: '',
+    look: { setup: 'Desk, camera left', outfit: 'Coral blouse', location: 'Office corner', props: 'Stack of folders', edit: 'No numbers on screen until the VP says yes.' },
+    notes: [{ who: 'Orca in #tiktok, Nov 18', text: 'Blinded. Say "a team I worked with." Permission to quote the VP is still open.' }],
+    drafted: ['feeling'], slate: 'B2 SKILLS'
+  },
+  {
+    id: 'chatbot-said', title: "Tales from tech support: 'But the chatbot said'", status: 'scheduled', stage: 'storyboarded',
+    summary: 'A caller insists the chatbot promised a refund policy that doesn\'t exist. Told in felt: Fox answers the help line. Then the turn: who is accountable when the bot makes it up?',
+    pillar: 'Messy', type: 'storyline', style: 'felt-world story', onCamera: 'felt world', voice: 'narrator', feeling: 'seen', harmHelp: 'harm',
+    cta: 'none', take: 2, story: null, series: 'Tales from tech support', safety: 'clear',
+    source: 'marketing/tiktok/story-formats/tech-support-tales/stories/2026-11-15-the-chatbot-said.md',
+    hooks: [
+      H("The ticket said: 'But the chatbot said I could.'", 'Tales from tech support', 'Felt fox in a headset answers a paper phone', 'story in motion', 'The turn at 0:14', true),
+      H('The chatbot made up a policy. Guess who had to honor it.', 'Guess who paid', 'Fox staring at a paper receipt', 'stakes', '0:07')
+    ],
+    chosen: 0,
+    beats: ['Caller: "But the chatbot said I could"', 'Fox checks: no such policy', 'The turn: who is accountable when the bot makes it up', 'Close: a human in the loop needs a playbook, not just a policy'],
+    gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' }, gutNote: '',
+    look: { setup: 'Tabletop, overhead', outfit: 'Plum sweater (hands only)', location: 'Craft table', props: 'Felt fox in headset, peg-person caller, paper laptop', edit: 'Narrator VO recorded after. Stop-motion feel: 8 fps on the fox.' },
+    notes: [], drafted: ['voice'], slate: 'C1 FOX TICKET'
+  },
+  {
+    id: 'do-it-scared', title: 'Grieve, then get started. Do it scared.', status: 'proposed', stage: null,
+    summary: 'Being let go in 2023, the year of identity crisis, and what I\'d tell that version of me. Hot take for anyone watching AI reshape their job.',
+    pillar: 'Grounded', type: 'personality', style: 'hot take', onCamera: 'talking head', voice: 'Mariena', feeling: 'motivated', harmHelp: 'neutral',
+    cta: 'follow', take: 1, story: 'letgo', series: '', safety: 'clear',
+    source: 'Story bank: being let go (missing: the scene, the day, the room)',
+    hooks: [
+      H("In 2023 I got let go. Here's what I'd tell that version of me.", 'Let go in 2023', 'Me on the porch steps, coffee in hand', 'story in motion', '0:06', true),
+      H('Grieve, then get started.', 'Grieve. Then start.', 'Tight close-up, no smile', 'bold claim', '0:03'),
+      H('Nobody tells you the scary part lasts a while.', 'The scary part lasts', 'Me walking toward camera on a trail', 'stakes', '0:08')
+    ],
+    chosen: null,
+    beats: [], gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' }, gutNote: '',
+    look: { setup: '', outfit: '', location: '', props: '', edit: '' },
+    notes: [], drafted: ['pillar', 'type', 'feeling', 'style', 'cta', 'take'], slate: ''
+  }
+];
+const PRIOR_WEEK = { label: 'bank week of Nov 16', n: 6, pillar: { Value: 2, Building: 2, Perspective: 1, Grounded: 1 } };
+
+/* ================= Mix targets (brief §6.3) ================= */
+const TARGETS = {
+  'type.authority': [3, 3], 'type.storyline': [2, 2], 'type.personality': [1, 1], 'type.follow the signal': [1, 1],
+  'pillar.Value': [4, 6], 'pillar.Messy': [3, 5], 'pillar.Building': [2, 4], 'pillar.Perspective': [1, 3], 'pillar.Grounded': [1, 2],
+  'style.each': [0, 2], 'style.others': [0, 2], 'style.series': [1, 7],
+  'camera.talking': [4, 5], 'hh.gap': [0, 1], 'cta.with': [0, 2], 'feeling.each': [0, 3]
+};
+const TARGET_LABEL = {
+  'type.authority': 'Authority', 'type.storyline': 'Storyline', 'type.personality': 'Personality', 'type.follow the signal': 'Follow the signal',
+  'pillar.Value': 'Value', 'pillar.Messy': 'Messy', 'pillar.Building': 'Building', 'pillar.Perspective': 'Perspective', 'pillar.Grounded': 'Grounded',
+  'style.each': 'Any one style', 'style.others': "Other people's stories", 'style.series': 'Running series episodes',
+  'camera.talking': 'Talking head', 'hh.gap': 'Gap between harm and help', 'cta.with': 'Videos with a call to action', 'feeling.each': 'Any one feeling'
+};
+const LOCK = { 'style.each': 'min', 'style.others': 'min', 'style.series': 'max', 'hh.gap': 'min', 'cta.with': 'min', 'feeling.each': 'min' };
+
+/* ================= Config versions ================= */
+const CONFIG = {
+  mission: 'Upskilling and changing how we work, at scale, for people in the workforce and contributing to the economy.',
+  throughline: 'The people doing the work should shape how AI changes it, so more people come out the other side better off.',
+  person: 'Alex, an under-resourced manager who tinkers. Gen Z or millennial, motivated, wants to do right by their team, believes AI can make the team better. More about results than decorum, always down for a good story and an impromptu game.',
+  vibe: '"We\'re all figuring this out." A little whimsical, messy, thinking out loud. Silly and weird, smart, professional and quirky.',
+  advice: '"If it were me, here\'s what I would do." No soapboxing, no know-it-all guru.',
+  cadenceWeeks: 6, lastCheckin: '2026-11-18'
+};
+const VERSIONS = [
+  { n: 3, date: '2026-11-18', label: 'Feelings set to seven; type replaces buckets; mix ranges set', changes: [
+    { field: 'Feelings', from: 'understood, called out, laughed, validated, hopeful, proud, curious', to: 'empowered, seen, inspired, motivated, cheeky, curious, optimistic' },
+    { field: 'Mix ranges', from: '(none)', to: 'Starting targets from the brief, §6.3' }] },
+  { n: 2, date: '2026-11-18', label: "The person: Alex's inner world added", changes: [
+    { field: 'The person', from: 'Alex, an under-resourced manager who tinkers.', to: 'Added the core problem, what\'s hurting, what he\'s tried, what he\'s afraid of and what he wants.' }] },
+  { n: 1, date: '2026-11-16', label: 'Imported from foundation.md (workbook answers)', changes: [] }
+];
+
+/* ================= State ================= */
+const S = {
+  ideas: IDEAS, targets: TARGETS, includeProposed: false,
+  filmDay: '2026-11-25', filmed: {}, focus: null, openVersion: null, editing: null,
+  ros: null, collapsedMoved: false
+};
+function buildRos() {
+  const blocks = [];
+  S.ideas.filter(i => ['scheduled', 'in progress'].includes(i.status)).forEach(i => {
+    let b = blocks.find(b => b.outfit === i.look.outfit); if (!b) blocks.push(b = { outfit: i.look.outfit, groups: [] });
+    const setup = `${i.look.setup} · ${i.look.location}`;
+    let g = b.groups.find(g => g.setup === setup); if (!g) b.groups.push(g = { setup, ids: [] });
+    g.ids.push(i.id);
+  });
+  return blocks;
+}
+S.ros = buildRos();
+
+/* ================= Helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const idea = id => S.ideas.find(i => i.id === id);
+const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+let toastT;
+function toast(msg) {
+  let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800);
+}
+const pillarChip = p => p ? `<span class="chip"><span class="dot" style="background:${pillarColor(p)}"></span>${esc(p)}</span>` : '';
+
+/* ================= Mix computation ================= */
+function counted() { return S.ideas.filter(i => ['scheduled', 'in progress'].includes(i.status) || (S.includeProposed && i.status === 'proposed')); }
+function computeMix() {
+  const c = counted(); const n = (f) => c.filter(f).length;
+  const dims = [];
+  dims.push({ id: 'type', title: 'Type', win: 7, note: '3-2-1 weekly mix, plus one follow-the-signal slot', rows: OPTS.type.map(t => ({ key: 'type.' + t, label: t[0].toUpperCase() + t.slice(1), count: n(i => i.type === t), scale: 5,
+    hint: t === 'follow the signal' ? 'Suggested from your top videos once posts exist' : '' })) });
+  dims.push({ id: 'pillar', title: 'Pillar', win: 14, note: `This week plus ${PRIOR_WEEK.n} ideas from the ${PRIOR_WEEK.label}`, rows: PILLARS.map(p => ({ key: 'pillar.' + p.name, label: p.name, color: p.color, count: n(i => i.pillar === p.name) + (PRIOR_WEEK.pillar[p.name] || 0), scale: 8 })) });
+  const styles = [...new Set(c.map(i => i.style))];
+  dims.push({ id: 'style', title: 'Content style', win: 7, note: '', rows: [
+    ...styles.map(s => ({ key: 'style.each', label: s[0].toUpperCase() + s.slice(1), count: n(i => i.style === s), scale: 5 })),
+    { key: 'style.others', label: "Other people's stories", sub: 'AI-ITA and workplace advice', count: n(i => ['AI-ITA', 'workplace advice'].includes(i.style)), scale: 5 },
+    { key: 'style.series', label: 'Running series episodes', count: n(i => i.series), scale: 7 }] });
+  dims.push({ id: 'camera', title: 'On camera', win: 7, note: c.filter(i => i.onCamera !== 'talking head').map(i => i.onCamera).join(', ') ? 'Also this week: ' + [...new Set(c.filter(i => i.onCamera !== 'talking head').map(i => i.onCamera))].join(', ') : '', rows: [{ key: 'camera.talking', label: 'Talking head', count: n(i => i.onCamera === 'talking head'), scale: 7 }] });
+  const harm = n(i => i.harmHelp === 'harm'), help = n(i => i.harmHelp === 'help'), neu = n(i => i.harmHelp === 'neutral');
+  dims.push({ id: 'hh', title: 'Harm, help or neutral', win: 7, note: `Harm ${harm} · Help ${help} · Neutral ${neu} (doesn't count)`, rows: [{ key: 'hh.gap', label: 'Gap between harm and help', count: Math.abs(harm - help), scale: 5 }] });
+  dims.push({ id: 'cta', title: 'Call to action', win: 7, note: c.filter(i => i.cta && i.cta !== 'none').map(i => i.cta).join(', '), rows: [{ key: 'cta.with', label: 'Videos with one', count: n(i => i.cta && i.cta !== 'none'), scale: 7 }] });
+  const used = OPTS.feeling.filter(f => n(i => i.feeling === f) > 0);
+  dims.push({ id: 'feeling', title: 'Feeling', win: 7, note: 'Not used: ' + OPTS.feeling.filter(f => !used.includes(f)).join(', '), rows: used.map(f => ({ key: 'feeling.each', label: f[0].toUpperCase() + f.slice(1), count: n(i => i.feeling === f), scale: 7 })) });
+  dims.forEach(d => d.rows.forEach(r => { const [lo, hi] = S.targets[r.key]; r.lo = lo; r.hi = hi; r.bad = r.count < lo || r.count > hi; }));
+  dims.forEach(d => d.off = d.rows.some(r => r.bad));
+  return dims;
+}
+function rowFlagText(r) { return r.count < r.lo ? `${r.lo - r.count} short` : r.count > r.hi ? `${r.count - r.hi} over` : ''; }
+function targetText(key) {
+  const [lo, hi] = S.targets[key], lock = LOCK[key];
+  if (lock === 'min') return `at most ${hi}`; if (lock === 'max') return `at least ${lo}`;
+  return lo === hi ? `target ${lo}` : `target ${lo} to ${hi}`;
+}
+function offList() {
+  const out = [];
+  computeMix().forEach(d => d.rows.filter(r => r.bad).forEach(r => out.push(`${d.title === 'Type' || d.title === 'Pillar' ? r.label : (r.key === 'style.each' || r.key === 'feeling.each' ? r.label : TARGET_LABEL[r.key])}: ${r.count}, ${targetText(r.key)}`)));
+  return out;
+}
+
+/* ================= Router ================= */
+const NAV = [['week', 'This week', I.week], ['dashboard', 'Dashboard', I.dash], ['film', 'Film', I.film], ['config', 'Config', I.config]];
+function route() {
+  const h = (location.hash || '#week').slice(1);
+  if (h.startsWith('idea-')) return { screen: 'idea', id: h.slice(5) };
+  return { screen: NAV.some(n => n[0] === h) ? h : 'week' };
+}
+function go(h) { if (location.hash === '#' + h) render(); else location.hash = h; }
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+
+function renderNav(active) {
+  const a = active === 'idea' ? 'week' : active;
+  $('#tabbar').innerHTML = NAV.map(([k, l, ic]) => `<button class="tab" data-go="${k}" ${a === k ? 'aria-current="page"' : ''}><span class="tab-ico">${ic}</span>${l}</button>`).join('');
+  $('#railnav').innerHTML = NAV.map(([k, l, ic]) => `<button data-go="${k}" ${a === k ? 'aria-current="page"' : ''}>${ic}${l}</button>`).join('');
+}
+function render() {
+  const r = route(); renderNav(r.screen);
+  const m = $('#main');
+  if (r.screen === 'week') m.innerHTML = vWeek();
+  else if (r.screen === 'idea') m.innerHTML = vIdea(r.id);
+  else if (r.screen === 'dashboard') m.innerHTML = vDashboard();
+  else if (r.screen === 'film') m.innerHTML = vFilm();
+  else if (r.screen === 'config') m.innerHTML = vConfig();
+  if (r.screen === 'film') wireSortables();
+}
+const strip = '<div class="strip" aria-hidden="true"></div>';
+
+/* ================= Screen: This week ================= */
+function hookLine(i) {
+  if (i.chosen === null || i.chosen === undefined) return `<p class="hookline pick">${i.hooks.length} hooks to pick</p>`;
+  const h = i.chosen === 'own' ? { spoken: i.ownHook } : i.hooks[i.chosen];
+  return `<p class="hookline">"${esc(h.spoken)}"</p>`;
+}
+function ideaCard(i) {
+  const acts = [];
+  if (i.status === 'proposed') acts.push(['scheduled', 'Schedule']);
+  if (['proposed', 'scheduled'].includes(i.status)) acts.push(['backlog', 'Backlog'], ['rejected', 'Reject']);
+  return `<article class="card idea-card">
+    ${i.rehook ? `<span class="rehook-badge">${I.alert} Re-hook needed</span>` : ''}
+    <h3>${esc(i.title)}</h3>
+    <div class="idea-meta">${pillarChip(i.pillar)}<span class="chip">${esc(i.feeling)}</span><span class="chip">${esc(i.style)}</span></div>
+    ${hookLine(i)}
+    <div class="card-actions">${acts.map(([s, l]) => `<button class="btn sm" data-move="${i.id}" data-to="${s}">${l}</button>`).join('')}<button class="btn sm open" data-go="idea-${i.id}">Open ${I.chev}</button></div>
+  </article>`;
+}
+function vWeek() {
+  const off = offList();
+  const groups = [['proposed', 'Proposed', 'Waiting on you'], ['scheduled', 'Scheduled', ''], ['in progress', 'In progress', '']];
+  const moved = S.ideas.filter(i => ['backlog', 'rejected'].includes(i.status));
+  return `${strip}
+  <header class="screen-head">
+    <div><p class="eyebrow">Bank week of Nov 23</p><h1>This week</h1></div>
+    <span class="tag">posts Nov 30 to Dec 6</span>
+  </header>
+  <button class="mixstrip" data-go="dashboard" aria-label="Open the mix on the dashboard">
+    <span class="lbl">Mix</span>
+    ${off.length ? off.map(o => `<span class="flag">${esc(o)}</span>`).join('') : '<span class="ok">Everything on target</span>'}
+    <span class="muted" style="margin-left:auto;display:flex">${I.chev}</span>
+  </button>
+  ${groups.map(([s, l, sub]) => { const list = S.ideas.filter(i => i.status === s); if (!list.length) return '';
+    return `<section class="section"><h2>${l} <span class="count-pill num">${list.length}</span>${sub ? `<span class="muted" style="font-size:13px;font-weight:500">${sub}</span>` : ''}</h2><div class="idea-grid">${list.map(ideaCard).join('')}</div></section>`; }).join('')}
+  ${moved.length ? `<section class="section"><h2>Moved out this week <span class="count-pill num">${moved.length}</span></h2>
+    <div class="card">${moved.map(i => `<div class="moved"><span><strong>${esc(i.title)}</strong> <span class="muted">· ${i.status}</span></span><button class="btn sm" data-move="${i.id}" data-to="${i.prev || 'proposed'}">Undo</button></div>`).join('')}</div></section>` : ''}
+  <p class="example-note">Example week built from your ideas list, takes bank and story bank.</p>`;
+}
+
+/* ================= Screen: Idea ================= */
+const FIELDS = [
+  ['pillar', 'Pillar', 'enum', () => PILLARS.map(p => p.name)],
+  ['type', 'Type', 'enum', () => OPTS.type],
+  ['feeling', 'Feeling', 'enum', () => OPTS.feeling],
+  ['style', 'Content style', 'enum', () => OPTS.style],
+  ['onCamera', 'On camera', 'enum', () => OPTS.onCamera],
+  ['voice', 'Voice', 'enum', () => OPTS.voice],
+  ['harmHelp', 'Harm, help or neutral', 'enum', () => OPTS.harmHelp],
+  ['cta', 'Call to action', 'enum', () => OPTS.cta],
+  ['take', 'Take', 'take', () => Object.keys(TAKES)],
+  ['story', 'Story', 'story', () => Object.keys(STORIES)],
+  ['series', 'Series', 'text'],
+  ['safety', 'Client safety', 'enum', () => ['blinded', 'clear']]
+];
+const LOOK = [['setup', 'Setup'], ['outfit', 'Outfit'], ['location', 'Location'], ['props', 'Props'], ['edit', 'Edit notes for Descript']];
+const REHOOK = { feeling: 'feeling', take: 'take', style: 'format', summary: 'angle' };
+function fieldVal(i, k) {
+  const v = i[k];
+  if (k === 'take') return v ? `#${v} ${TAKES[v]}` : '';
+  if (k === 'story') return v ? STORIES[v] : '';
+  if (k === 'pillar' && v) return `<span class="dot" style="background:${pillarColor(v)}"></span>${esc(v)}`;
+  if (k === 'cta' && v && v !== 'none' && i.ctaLink) return `${esc(v)} <span class="muted" style="font-weight:400">${esc(i.ctaLink)}</span>`;
+  return esc(v);
+}
+function fieldRow(i, k, label, long) {
+  const v = k.startsWith('look.') ? i.look[k.slice(5)] : null;
+  const shown = k.startsWith('look.') ? esc(v) : fieldVal(i, k);
+  const isLong = long || k === 'take';
+  return `<button class="field ${isLong ? 'stack' : ''} ${S.flash === k ? 'changed' : ''}" data-edit="${k}" data-id="${i.id}">
+    <span class="k">${label}</span>
+    <span class="v ${isLong ? 'long' : ''}">${shown || '<span class="muted" style="font-weight:400">Add</span>'}${i.drafted.includes(k) ? '<span class="drafted">drafted</span>' : ''}</span>
+    <span class="chev">${I.chev}</span></button>`;
+}
+function vIdea(id) {
+  const i = idea(id); if (!i) return `${strip}<p style="margin-top:20px">That idea isn't in this week.</p>`;
+  const drafts = i.drafted.length;
+  const hk = i.hooks.length >= 4 ? 'four' : 'three';
+  return `${strip}
+  <button class="back" data-go="week">${I.back} This week</button>
+  <header style="padding:6px 0 4px">
+    <h1 class="idea-title">${esc(i.title)}</h1>
+    <div class="statusrow">
+      <button class="pillbtn" data-edit="status" data-id="${i.id}">Status: ${esc(i.status)}</button>
+      ${i.stage ? `<button class="pillbtn" data-edit="stage" data-id="${i.id}">Stage: ${esc(i.stage)}</button>` : ''}
+      ${i.rehook ? `<span class="rehook-badge">${I.alert} Re-hook needed</span>` : ''}
+      ${drafts ? `<span class="muted" style="font-size:13px">${drafts} drafted field${drafts > 1 ? 's' : ''} to check</span>` : ''}
+    </div>
+  </header>
+
+  <section class="section"><h2>Summary and source</h2>
+    <div class="card">
+      ${fieldRow(i, 'summary', 'Summary (the angle)', true)}
+      <div class="summary-block"><span class="eyebrow">Source</span><span class="mono">${esc(i.source)}</span>${i.safety === 'blinded' ? '<span class="chip" style="justify-self:start">Blinded: say "a team I worked with"</span>' : ''}</div>
+    </div></section>
+
+  <section class="section"><h2>Design</h2>
+    <div class="card panel">${FIELDS.map(([k, l]) => fieldRow(i, k, l)).join('')}</div></section>
+
+  <section class="section" id="hooks"><h2>Hooks <span class="count-pill num">${i.hooks.length}</span></h2>
+    ${i.rehook ? `<div class="rehook" role="status"><strong>Re-hook needed</strong>
+      <p>You changed the ${REHOOK[i.rehook.field]} from <strong>${esc(i.rehook.from || 'blank')}</strong> to <strong>${esc(i.rehook.to)}</strong>, so these hooks may not fit anymore. Cody rebuilds them on the next agent pass and keeps these as superseded.</p>
+      <div><button class="btn sm" data-clear-rehook="${i.id}">Keep these hooks</button></div></div>` : ''}
+    <div class="hooks ${hk}">${i.hooks.map((h, n) => `
+      <article class="card hook ${i.chosen === n ? 'chosen' : ''} ${i.rehook ? 'stale' : ''}">
+        <div class="top"><span class="chip">${esc(h.format)}</span>${h.rec ? '<span class="tag sm">recommended</span>' : ''}</div>
+        <p class="spoken">"${esc(h.spoken)}"</p>
+        <dl><div><dt>On-screen text</dt><dd>${esc(h.onscreen)}</dd></div><div><dt>First frame</dt><dd>${esc(h.frame)}</dd></div><div><dt>Payoff lands</dt><dd>${esc(h.payoff)}</dd></div></dl>
+        <button class="btn ${i.chosen === n ? 'primary' : ''}" data-pick="${i.id}" data-n="${n}">${i.chosen === n ? I.check + ' Chosen' : 'Pick this hook'}</button>
+      </article>`).join('')}
+    </div>
+    ${i.chosen === 'own' ? `<div class="card" style="padding:14px"><span class="eyebrow">Your own hook</span><p class="spoken" style="font-weight:600;margin-top:4px">"${esc(i.ownHook)}"</p></div>` : ''}
+    <div><button class="btn" data-own="${i.id}">Write my own hook</button></div>
+  </section>
+
+  <section class="section"><h2>Gut check</h2>
+    <div class="card gut">
+      ${[['Dawn', 'wants to know it\'s good for people'], ['Alex', 'wants the how'], ['Paloma', 'wants the plot']].map(([p, w]) => `<div class="gutrow"><span class="person">${p}<small>${w}</small></span>
+        <span class="seg" role="group" aria-label="Would ${p} keep watching?">${['yes', 'not sure', 'no'].map(o => `<button aria-pressed="${i.gut[p] === o}" data-gut="${i.id}" data-p="${p}" data-o="${o}">${o}</button>`).join('')}</span></div>`).join('')}
+      ${i.gutNote ? `<p class="muted" style="font-size:13.5px">${esc(i.gutNote)}</p>` : ''}
+    </div></section>
+
+  <section class="section"><h2>Storyboard</h2>
+    <div class="card" style="padding:14px 16px;display:grid;gap:12px">
+      ${i.beats.length ? `<p class="muted" style="font-size:13px">From Mark's storyboard, with your take in your words</p><ol class="beats">${i.beats.map(b => `<li>${esc(b)}</li>`).join('')}</ol>` : '<p class="muted">Mark storyboards it once you schedule it.</p>'}
+    </div></section>
+
+  <section class="section"><h2>Your notes and Slack replies</h2>
+    <div class="card">${i.notes.map(n => `<div class="note"><span class="who">${esc(n.who)}</span><p>${esc(n.text)}</p></div>`).join('') || '<div class="note"><p class="muted">No notes yet. Replies in the #tiktok thread show up here.</p></div>'}
+      <div class="note"><label class="who" for="note-${i.id}">Add a note</label><div style="display:flex;gap:8px"><input type="text" id="note-${i.id}" placeholder="Tighter open, start on the letter"><button class="btn" data-addnote="${i.id}">Add</button></div></div>
+    </div></section>
+
+  <section class="section"><h2>Look</h2>
+    <div class="card panel">${LOOK.map(([k, l]) => fieldRow(i, 'look.' + k, l, k === 'edit' || k === 'props')).join('')}</div>
+    <p class="muted" style="font-size:13px">Outfit and setup feed the run of show. Changing these never sets re-hook needed.</p>
+  </section>
+  <div style="height:12px"></div>`;
+}
+
+/* ================= Sheet (tap-to-edit) ================= */
+function openSheet(html) {
+  $('#overlay').innerHTML = `<div class="scrim" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  const f = $('.sheet textarea, .sheet input, .sheet .opt[aria-pressed="true"], .sheet .opt'); f && f.focus();
+}
+function closeSheet() { $('#overlay').innerHTML = ''; }
+function editField(id, k) {
+  const i = idea(id);
+  if (k === 'status' || k === 'stage') {
+    const opts = OPTS[k];
+    return openSheet(`<h3>${k === 'status' ? 'Status' : 'Episode stage'}</h3><p class="hint">${k === 'status' ? 'Slack replies move this too.' : 'Agents update this through mh as the episode moves.'}</p>
+      <div class="optlist">${opts.map(o => `<button class="opt" aria-pressed="${i[k] === o}" data-set="${id}" data-k="${k}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`);
+  }
+  if (k.startsWith('look.') || k === 'summary' || k === 'series') {
+    const cur = k.startsWith('look.') ? i.look[k.slice(5)] : i[k];
+    const label = k.startsWith('look.') ? LOOK.find(l => 'look.' + l[0] === k)[1] : (k === 'summary' ? 'Summary (the angle)' : 'Series');
+    const warn = REHOOK[k] ? '<p class="hint">Changing the angle sets re-hook needed.</p>' : (k.startsWith('look.') ? '<p class="hint">Look changes don\'t affect hooks.</p>' : '<p class="hint"></p>');
+    return openSheet(`<h3>${label}</h3>${warn}<textarea id="sheet-text">${esc(cur)}</textarea>
+      <div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-savetext="${id}" data-k="${k}">Save</button></div>`);
+  }
+  const def = FIELDS.find(f => f[0] === k); const opts = def[3]();
+  const label = o => k === 'take' ? `#${o} <small>${esc(TAKES[o])}</small>` : k === 'story' ? esc(STORIES[o]) : esc(o);
+  const drafted = i.drafted.includes(k);
+  openSheet(`<h3>${def[1]}</h3><p class="hint">${REHOOK[k] ? 'Changing this sets re-hook needed.' : 'Changing this keeps the hooks as they are.'}${drafted ? ' Drafted by an agent; pick one or confirm it.' : ''}</p>
+    <div class="optlist">${opts.map(o => `<button class="opt" aria-pressed="${String(i[k]) === String(o)}" data-set="${id}" data-k="${k}" data-v="${esc(o)}"><span>${label(o)}</span></button>`).join('')}</div>
+    ${drafted ? `<div class="sheet-actions"><button class="btn primary" data-confirm="${id}" data-k="${k}">Confirm ${esc(i[k] && k !== 'take' ? i[k] : 'as drafted')}</button></div>` : ''}`);
+}
+function setField(id, k, v) {
+  const i = idea(id); let from;
+  if (k.startsWith('look.')) { from = i.look[k.slice(5)]; i.look[k.slice(5)] = v; }
+  else { from = i[k]; i[k] = (k === 'take' ? Number(v) : v); }
+  i.drafted = i.drafted.filter(d => d !== k);
+  const changed = String(from ?? '') !== String(v ?? '');
+  if (k === 'status') i.prev = from;
+  if (changed && REHOOK[k]) {
+    const show = x => k === 'take' ? (x ? '#' + x : '') : k === 'summary' ? 'the earlier wording' : x;
+    i.rehook = { field: k, from: show(from), to: k === 'summary' ? 'your new wording' : show(v) };
+    toast(`${REHOOK[k][0].toUpperCase() + REHOOK[k].slice(1)} changed. Re-hook needed.`);
+  } else if (changed) {
+    toast(k.startsWith('look.') ? `${LOOK.find(l => 'look.' + l[0] === k)[1]} saved. Hooks unchanged.` : 'Saved.');
+  }
+  if (k === 'status' || k === 'look.outfit' || k === 'look.setup' || k === 'look.location') S.ros = buildRos();
+  S.flash = k; closeSheet(); render(); S.flash = null;
+}
+
+/* ================= Screen: Dashboard ================= */
+function meterRow(r) {
+  const cells = r.scale + 1, pct = v => (v / cells * 100).toFixed(3) + '%';
+  const lock = LOCK[r.key];
+  const ticks = Array.from({ length: cells }, (_, v) => `<span class="tick" style="left:${pct(v + .5)}"></span>`).join('');
+  const nums = Array.from({ length: cells }, (_, v) => `<span style="left:${pct(v + .5)}">${v}</span>`).join('');
+  return `<div class="mrow ${r.bad ? 'bad' : ''}" data-key="${esc(r.key)}" data-count="${r.count}" data-scale="${r.scale}">
+    <div class="mrow-head">${r.color ? `<span class="dot" style="background:${r.color}"></span>` : ''}<span class="lab">${esc(r.label)}</span><span class="cnt num">${r.count}</span><span class="tgt">${targetText(r.key)}</span>
+      ${r.bad ? `<span class="flag">${rowFlagText(r)}</span>` : '<span class="ok">on target</span>'}</div>
+    ${r.sub ? `<span class="dim-note">${esc(r.sub)}</span>` : ''}
+    <div class="track"><span class="base"></span>${ticks}<span class="band"></span>
+      ${lock !== 'min' ? `<button class="h" data-end="lo" role="slider" aria-label="${esc(r.label)} minimum" aria-valuemin="0" aria-valuemax="${r.scale}"></button>` : ''}
+      ${lock !== 'max' ? `<button class="h" data-end="hi" role="slider" aria-label="${esc(r.label)} maximum" aria-valuemin="0" aria-valuemax="${r.scale}"></button>` : ''}
+      <span class="marker num">${r.count}</span></div>
+    <div class="scale num" aria-hidden="true">${nums}</div>
+    ${r.hint ? `<span class="dim-note">${esc(r.hint)}</span>` : ''}
+  </div>`;
+}
+function paintMeters() {
+  document.querySelectorAll('.mrow').forEach(row => {
+    const key = row.dataset.key, count = +row.dataset.count, scale = +row.dataset.scale, cells = scale + 1;
+    const [lo, hi] = S.targets[key]; const pct = v => (v / cells * 100).toFixed(3) + '%';
+    const band = row.querySelector('.band');
+    band.style.left = pct(Math.min(lo, scale)); band.style.width = pct(Math.min(hi, scale) - Math.min(lo, scale) + 1);
+    row.querySelector('.marker').style.left = pct(Math.min(count, scale) + .5);
+    const hlo = row.querySelector('[data-end="lo"]'), hhi = row.querySelector('[data-end="hi"]');
+    if (hlo) { hlo.style.left = pct(lo); hlo.setAttribute('aria-valuenow', lo); }
+    if (hhi) { hhi.style.left = pct(Math.min(hi, scale) + 1); hhi.setAttribute('aria-valuenow', hi); }
+    const bad = count < lo || count > hi; row.classList.toggle('bad', bad);
+    const head = row.querySelector('.mrow-head');
+    head.querySelector('.tgt').textContent = targetText(key);
+    const fl = head.querySelector('.flag, .ok');
+    fl.className = bad ? 'flag' : 'ok'; fl.textContent = bad ? rowFlagText({ count, lo, hi }) : 'on target';
+  });
+  document.querySelectorAll('.dim').forEach(d => {
+    const off = !!d.querySelector('.mrow.bad'); d.classList.toggle('off', off);
+    const s = d.querySelector('.dim-status'); s.className = 'dim-status ' + (off ? 'flag' : 'ok'); s.textContent = off ? 'Off target' : 'On target';
+  });
+  const sum = $('#mix-summary'); if (sum) { const n = document.querySelectorAll('.dim.off').length; sum.textContent = n ? `${n} of 7 dimensions off target` : 'All 7 dimensions on target'; }
+}
+function vDashboard() {
+  const dims = computeMix(); const nOff = dims.filter(d => d.off).length;
+  const cnt = counted().length;
+  return `${strip}
+  <header class="screen-head"><div><p class="eyebrow">Bank week of Nov 23</p><h1>Dashboard</h1></div></header>
+
+  <section class="card placeholder washi">
+    <div class="ph-row">${fern()}
+      <div class="ph-body"><span class="tag sm" style="justify-self:start">first post Nov 30</span>
+        <h2>Performance trends arrive after your first posts</h2>
+        <p class="muted">Views, comments, saves, shares and watch time per video, with your one line on what landed. Sliced by pillar, type, style, feeling, hook format and setup, to answer one question: what kind of video gets real comments for you?</p>
+      </div></div>
+    <div class="ph-chart" aria-hidden="true"><svg viewBox="0 0 300 74" preserveAspectRatio="none"><path d="M0 60 C40 58 60 50 90 52 S150 30 180 36 S240 18 300 22" fill="none" stroke="var(--line)" stroke-width="2.5" stroke-dasharray="5 6"/></svg></div>
+  </section>
+
+  <section class="section">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div><h2 style="font-size:20px">Mix against your targets</h2><p class="muted" id="mix-summary" style="font-size:13.5px">${nOff ? `${nOff} of 7 dimensions off target` : 'All 7 dimensions on target'}</p></div>
+      <button class="switch" role="switch" aria-checked="${S.includeProposed}" data-toggle-proposed><span class="sw"></span>Count proposed ideas</button>
+    </div>
+    <div class="legend"><span><i style="width:22px;height:10px;border-radius:5px;background:var(--sage)"></i>target range, drag the ends</span><span><i class="dot" style="background:var(--forest);width:14px;height:14px"></i>${cnt} ideas counted (scheduled and in progress${S.includeProposed ? ', plus proposed' : ''})</span><span><i class="dot" style="background:var(--coral);width:14px;height:14px"></i>off target</span></div>
+    <div class="dims">${dims.map(d => `<article class="card dim ${d.off ? 'off' : ''}">
+      <div class="dim-head"><h3>${d.title}<span class="win">${d.win} days</span></h3><span class="dim-status ${d.off ? 'flag' : 'ok'}">${d.off ? 'Off target' : 'On target'}</span></div>
+      ${d.note ? `<p class="dim-note">${esc(d.note)}</p>` : ''}
+      ${d.rows.map(meterRow).join('')}
+    </article>`).join('')}</div>
+  </section>
+  <p class="example-note">Range changes save to config as a new version.</p>`;
+}
+
+/* ================= Screen: Config ================= */
+function editableText(key, text) {
+  if (S.editing === key) return `<div style="display:grid;gap:8px"><textarea id="cfg-${key}">${esc(text)}</textarea><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost sm" data-cfg-cancel>Cancel</button><button class="btn primary sm" data-cfg-save="${key}">Save as new version</button></div></div>`;
+  return `<button class="editable" data-cfg-edit="${key}">${esc(text)}<span class="pen">Edit</span></button>`;
+}
+function rangeRow(key) {
+  const [lo, hi] = S.targets[key]; const lock = LOCK[key]; const win = key.startsWith('pillar') ? 14 : 7;
+  const step = (end, v) => `<span class="stepper"><button aria-label="Lower ${end}" data-step="${key}" data-end="${end}" data-d="-1">−</button><output class="num">${v}</output><button aria-label="Raise ${end}" data-step="${key}" data-end="${end}" data-d="1">+</button></span>`;
+  return `<div class="range-row"><span class="lab">${esc(TARGET_LABEL[key])}<small>${key.split('.')[0] === 'type' ? 'Type' : key.split('.')[0] === 'pillar' ? 'Pillar' : ''} ${win} days</small></span>
+    <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end">${lock === 'min' ? '<span class="to">at most</span>' + step('hi', hi) : lock === 'max' ? '<span class="to">at least</span>' + step('lo', lo) : step('lo', lo) + '<span class="to">to</span>' + step('hi', hi)}</span></div>`;
+}
+function vConfig() {
+  const cur = VERSIONS[0];
+  const next = new Date(CONFIG.lastCheckin + 'T12:00:00'); next.setDate(next.getDate() + CONFIG.cadenceWeeks * 7);
+  const lists = [['style', 'Content styles'], ['onCamera', 'On-camera setups'], ['voice', 'Voices and characters'], ['cta', 'Calls to action'], ['hookFormat', 'Hook formats']];
+  return `${strip}
+  <header class="screen-head"><div><p class="eyebrow">Read by every agent</p><h1>Config</h1></div><span class="tag">version ${cur.n} · ${fmtDate(cur.date).replace(', 2026', '')}</span></header>
+  <nav class="jump" aria-label="Config sections"><a href="#cfg-positioning" data-scroll>Positioning</a><a href="#cfg-lists" data-scroll>Option lists</a><a href="#cfg-ranges" data-scroll>Mix ranges</a><a href="#cfg-checkin" data-scroll>Check-in</a><a href="#cfg-history" data-scroll>History</a></nav>
+
+  <section class="section" id="cfg-positioning"><h2>Positioning</h2>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Through-line <span class="chip" style="text-transform:none;letter-spacing:0">every video carries it</span></span>${editableText('throughline', CONFIG.throughline)}</div>
+      <div class="cfg-item"><span class="k">Mission</span>${editableText('mission', CONFIG.mission)}</div>
+      <div class="cfg-item"><span class="k">The person</span>${editableText('person', CONFIG.person)}</div>
+    </div>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Pillars</span></div>
+      ${PILLARS.map((p, n) => `<div class="cfg-item pillar-row"><span class="dot" style="background:${p.color}"></span><div style="display:grid;gap:2px;min-width:0"><strong>${esc(p.name)}</strong>${editableText('pillar' + n, p.desc)}<span class="muted" style="font-size:13px">Carries the through-line: ${esc(p.carries)}</span></div></div>`).join('')}
+    </div>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Feelings <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500">each video names one</span></span><div class="chips">${OPTS.feeling.map(f => `<span class="chipbtn" style="display:inline-flex;align-items:center">${esc(f)}</span>`).join('')}<button class="chipbtn add" data-addopt="feeling">Add</button></div></div>
+      <div class="cfg-item"><span class="k">Voice: vibe</span>${editableText('vibe', CONFIG.vibe)}</div>
+      <div class="cfg-item"><span class="k">Voice: advice</span>${editableText('advice', CONFIG.advice)}</div>
+    </div>
+  </section>
+
+  <section class="section" id="cfg-lists"><h2>Option lists</h2>
+    <div class="card cfg">${lists.map(([k, l]) => `<div class="cfg-item"><span class="k">${l} <span class="count-pill num">${OPTS[k].length}</span></span><div class="chips">${OPTS[k].map(o => `<span class="chipbtn" style="display:inline-flex;align-items:center">${esc(o)}</span>`).join('')}
+      ${S.adding === k ? `<span class="chipbtn"><input type="text" id="add-${k}" placeholder="New value" data-addinput="${k}"></span>` : `<button class="chipbtn add" data-addopt="${k}">Add</button>`}</div></div>`).join('')}</div>
+    <p class="muted" style="font-size:13px">Renaming a value updates every idea that uses it. Old values stay readable on past videos.</p>
+  </section>
+
+  <section class="section" id="cfg-ranges"><h2>Mix ranges</h2>
+    <div class="card cfg">${Object.keys(S.targets).map(rangeRow).join('')}</div>
+    <p class="muted" style="font-size:13px">Same ranges as the dashboard meters. Drag there or step here.</p>
+  </section>
+
+  <section class="section" id="cfg-checkin"><h2>Check-in cadence</h2>
+    <div class="card cfg"><div class="range-row"><span class="lab">Every<small>The app and Orca in Slack both prompt you</small></span>
+      <span class="stepper"><button aria-label="Fewer weeks" data-cadence="-1">−</button><output class="num">${CONFIG.cadenceWeeks}</output><button aria-label="More weeks" data-cadence="1">+</button><span class="to">weeks</span></span></div>
+      <div class="range-row"><span class="lab">Last check-in</span><span class="num">${fmtDate(CONFIG.lastCheckin)}</span></div>
+      <div class="range-row"><span class="lab">Next check-in</span><strong class="num">${fmtDate(next.toISOString().slice(0, 10))}</strong></div></div>
+  </section>
+
+  <section class="section" id="cfg-history"><h2>Version history</h2>
+    <div class="card"><ul class="versions">${VERSIONS.map((v, n) => `<li><button class="ver ${n === 0 ? 'current' : ''}" data-ver="${v.n}" aria-expanded="${S.openVersion === v.n}"><span class="vn num">v${v.n}</span><span style="min-width:0"><strong style="font-weight:600">${esc(v.label)}</strong><br><span class="vd">${fmtDate(v.date)}${n === 0 ? ' · current' : ''}</span></span><span class="chev">${I.chev}</span></button>
+      ${S.openVersion === v.n ? `<div class="diff">${v.changes.length ? v.changes.map(c => `<div><span class="eyebrow">${esc(c.field)}</span><p class="was">${esc(c.from)}</p><p>${esc(c.to)}</p></div>`).join('') : '<p class="muted">The starting point: everything as it was in foundation.md.</p>'}</div>` : ''}</li>`).join('')}</ul></div>
+  </section>`;
+}
+function addVersion(label, change) {
+  const today = '2026-11-19'; const top = VERSIONS[0];
+  if (top.date === today && top.label === label) { top.changes.push(change); }
+  else VERSIONS.unshift({ n: top.n + 1, date: today, label, changes: [change] });
+  return VERSIONS[0].n;
+}
+
+/* ================= Screen: Film ================= */
+const FILM_DAYS = [['2026-11-24', 'Tue', 'Nov 24'], ['2026-11-25', 'Wed', 'Nov 25'], ['2026-11-26', 'Thu', 'Nov 26']];
+function vidCard(i, idx) {
+  const h = i.chosen === 'own' ? { spoken: i.ownHook, onscreen: '', frame: '' } : (i.chosen !== null && i.chosen !== undefined ? i.hooks[i.chosen] : null);
+  const done = !!S.filmed[i.id];
+  return `<article class="card vid ${done ? 'done' : ''}" data-vid="${i.id}">
+    <div class="vid-top">
+      <div class="tt"><span class="slate">${esc(i.slate)}</span><h3>${esc(i.title)}</h3></div>
+      ${S.focus === null ? `<button class="handle" aria-label="Drag to reorder ${esc(i.title)}">${I.grip}</button>` : ''}
+    </div>
+    <div class="detail" style="display:grid;gap:16px">
+      ${h ? `<div style="display:grid;gap:4px"><span class="say-l">Say first</span><p class="say">"${esc(h.spoken)}"</p></div>
+        <div class="film-grid two"><div><span class="say-l">On-screen text</span><p class="v">${esc(h.onscreen)}</p></div><div><span class="say-l">First frame</span><p class="v">${esc(h.frame)}</p></div></div>`
+        : `<div class="nohook"><span>No hook picked yet</span><button class="btn sm" data-go="idea-${i.id}">Pick a hook</button></div>`}
+      ${i.beats.length ? `<div><span class="say-l">Beats</span><ol class="beats" style="margin-top:8px">${i.beats.map(b => `<li>${esc(b)}</li>`).join('')}</ol></div>` : ''}
+      <div class="film-grid two">
+        <div><span class="say-l">Voice</span><p class="v">${esc(i.voice)}</p></div>
+        <div><span class="say-l">Feeling</span><p class="v">${esc(i.feeling)}</p></div>
+        <div><span class="say-l">Props</span><p class="v">${esc(i.look.props) || 'None'}</p></div>
+        <div><span class="say-l">Call to action</span><p class="v">${esc(i.cta)}${i.ctaLink && i.cta !== 'none' ? ': ' + esc(i.ctaLink) : ''}</p></div>
+      </div>
+      ${i.look.edit ? `<div><span class="say-l">Edit notes for Descript</span><p class="edit-notes" style="margin-top:6px">${esc(i.look.edit)}</p></div>` : ''}
+    </div>
+    <button class="filmed-btn" data-filmed="${i.id}" aria-pressed="${done}"><span class="box">${done ? I.check : ''}</span>${done ? 'Filmed' : 'Mark filmed'}</button>
+  </article>`;
+}
+function vFilm() {
+  const dayBtns = FILM_DAYS.map(([d, w, l]) => `<button class="day" data-day="${d}" aria-pressed="${S.filmDay === d}">${w}<small>${l}${d === '2026-11-26' ? ' · holiday' : ''}</small></button>`).join('');
+  if (S.filmDay !== '2026-11-25') return `${strip}<header class="screen-head"><div><p class="eyebrow">Run of show</p><h1>Film day</h1></div></header><div class="days">${dayBtns}</div>
+    <div class="card empty" style="margin-top:20px">${fern()}<h2 style="font-size:18px">Nothing to film this day</h2><p class="muted">Orca builds a run of show for a film day once ideas are scheduled. Wednesday has six videos.</p><button class="btn" data-day="2026-11-25">Go to Wednesday</button></div>`;
+  const all = S.ros.flatMap(b => b.groups.flatMap(g => g.ids)).map(idea).filter(Boolean);
+  const nDone = all.filter(i => S.filmed[i.id]).length;
+  const head = `${strip}
+  <header class="screen-head"><div><p class="eyebrow">Run of show</p><h1>Film day</h1></div><span class="tag">Thursday is Thanksgiving</span></header>
+  <div class="days">${dayBtns}</div>
+  <div style="display:grid;gap:8px;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;font-weight:600"><span class="num">${nDone} of ${all.length} filmed</span><span class="muted num" style="font-weight:500">${S.ros.length} outfits</span></div>
+    <div class="progress"><i style="width:${all.length ? nDone / all.length * 100 : 0}%"></i></div>
+    <div class="film-tools">${S.focus === null ? `<button class="btn" data-focus="0">One at a time</button>` : `<button class="btn" data-focus="off">Show the whole list</button>`}<button class="btn ghost" data-wake>Keep screen on</button></div>
+  </div>`;
+  if (S.focus !== null) {
+    const idx = Math.max(0, Math.min(S.focus, all.length - 1)); const i = all[idx];
+    const blockN = S.ros.findIndex(b => b.groups.some(g => g.ids.includes(i.id)));
+    const g = S.ros[blockN].groups.find(g => g.ids.includes(i.id));
+    return `<div class="film">${head}<div class="block"><div class="block-head"><span class="tag">outfit ${blockN + 1}</span><h2>${esc(S.ros[blockN].outfit)}</h2></div><p class="setup">${esc(g.setup)}</p>${vidCard(i, idx)}</div>
+      <div class="focusnav"><button class="btn" data-focus="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>Previous</button><span class="num" style="font-weight:700">${idx + 1} / ${all.length}</span><button class="btn primary" data-focus="${idx + 1}" ${idx === all.length - 1 ? 'disabled' : ''}>Next</button></div></div>`;
+  }
+  return `<div class="film">${head}
+    <div id="blocks">${S.ros.map((b, bn) => `<section class="block" data-block="${bn}">
+      <div class="block-head"><span class="tag">outfit ${bn + 1}</span><h2 style="flex:1">${esc(b.outfit)}</h2></div>
+      ${b.groups.map((g, gn) => `<p class="setup">${esc(g.setup)}</p><div class="vlist" data-b="${bn}" data-g="${gn}">${g.ids.map(id => vidCard(idea(id))).join('')}</div>`).join('')}
+    </section>`).join('')}</div>
+    <p class="example-note">Drag the grip to reorder within a setup. Grouped by outfit, then setup, so you change clothes and move the camera as little as possible.</p></div>`;
+}
+function wireSortables() {
+  document.querySelectorAll('.vlist').forEach(list => {
+    list.querySelectorAll('.handle').forEach(hd => hd.addEventListener('pointerdown', e => {
+      e.preventDefault(); const item = hd.closest('.vid'); hd.setPointerCapture(e.pointerId); item.classList.add('dragging');
+      const move = ev => {
+        const sibs = [...list.querySelectorAll('.vid')].filter(s => s !== item);
+        const after = sibs.find(s => { const r = s.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
+        if (after) list.insertBefore(item, after); else list.appendChild(item);
+      };
+      const up = () => {
+        hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
+        item.classList.remove('dragging');
+        const ids = [...list.querySelectorAll('.vid')].map(v => v.dataset.vid);
+        const g = S.ros[list.dataset.b].groups[list.dataset.g];
+        if (ids.join() !== g.ids.join()) { g.ids = ids; toast('Filming order saved.'); }
+      };
+      hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+    }));
+  });
+}
+
+/* ================= Events ================= */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a, [data-close]'); if (!t) return;
+  const d = t.dataset;
+  if (d.close !== undefined) return closeSheet();
+  if (d.go) return go(d.go);
+  if (d.move) { const i = idea(d.move); const from = i.status; i.prev = from; i.status = d.to; S.ros = buildRos();
+    toast(d.to === 'backlog' ? 'Moved to backlog.' : d.to === 'rejected' ? 'Rejected.' : d.to === 'scheduled' ? 'Scheduled.' : 'Moved back.'); return render(); }
+  if (d.edit) return editField(d.id, d.edit);
+  if (d.set) return setField(d.set, d.k, d.v);
+  if (d.confirm) { const i = idea(d.confirm); i.drafted = i.drafted.filter(x => x !== d.k); closeSheet(); toast('Confirmed.'); return render(); }
+  if (d.savetext) return setField(d.savetext, d.k, $('#sheet-text').value.trim());
+  if (d.pick) { const i = idea(d.pick); i.chosen = +d.n; toast('Hook picked.'); return render(); }
+  if (d.own) { const i = idea(d.own); return openSheet(`<h3>Write my own hook</h3><p class="hint">Your first spoken line. It replaces the picked option.</p><textarea id="sheet-own">${esc(i.ownHook || '')}</textarea><div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-saveown="${i.id}">Use this hook</button></div>`); }
+  if (d.saveown) { const i = idea(d.saveown); const v = $('#sheet-own').value.trim(); if (!v) return; i.ownHook = v; i.chosen = 'own'; closeSheet(); toast('Your hook is chosen.'); return render(); }
+  if (d.clearRehook) { idea(d.clearRehook).rehook = null; toast('Hooks kept.'); return render(); }
+  if (d.gut) { idea(d.gut).gut[d.p] = d.o; return render(); }
+  if (d.addnote) { const inp = $('#note-' + d.addnote); if (!inp.value.trim()) return; idea(d.addnote).notes.push({ who: 'You in the app, Nov 19', text: inp.value.trim() }); return render(); }
+  if (d.toggleProposed !== undefined) { S.includeProposed = !S.includeProposed; return render(); }
+  if (d.cfgEdit) { S.editing = d.cfgEdit; render(); const ta = $('#cfg-' + d.cfgEdit); ta && ta.focus(); return; }
+  if (d.cfgCancel !== undefined) { S.editing = null; return render(); }
+  if (d.cfgSave) { const k = d.cfgSave, v = $('#cfg-' + k).value.trim(); let from, field;
+    if (k.startsWith('pillar')) { const p = PILLARS[+k.slice(6)]; from = p.desc; p.desc = v; field = `Pillar: ${p.name}`; }
+    else { from = CONFIG[k]; CONFIG[k] = v; field = { throughline: 'Through-line', mission: 'Mission', person: 'The person', vibe: 'Voice: vibe', advice: 'Voice: advice' }[k]; }
+    S.editing = null; if (from !== v) { const n = addVersion(`${field} edited`, { field, from, to: v }); toast(`Saved as version ${n}.`); } return render(); }
+  if (d.addopt) { S.adding = d.addopt; render(); const inp = $('#add-' + d.addopt); inp && inp.focus(); return; }
+  if (d.step) { const r = S.targets[d.step]; const iEnd = d.end === 'lo' ? 0 : 1; const nv = r[iEnd] + +d.d;
+    if (nv < 0 || nv > 14 || (iEnd === 0 && nv > r[1]) || (iEnd === 1 && nv < r[0])) return;
+    const from = `${r[0]} to ${r[1]}`; r[iEnd] = nv; addVersion('Mix ranges changed', { field: TARGET_LABEL[d.step], from, to: `${r[0]} to ${r[1]}` }); return render(); }
+  if (d.cadence) { const v = CONFIG.cadenceWeeks + +d.cadence; if (v < 1 || v > 26) return; const from = CONFIG.cadenceWeeks; CONFIG.cadenceWeeks = v; addVersion('Check-in cadence changed', { field: 'Check-in cadence', from: `every ${from} weeks`, to: `every ${v} weeks` }); return render(); }
+  if (d.ver) { S.openVersion = S.openVersion === +d.ver ? null : +d.ver; return render(); }
+  if (d.scroll !== undefined) { e.preventDefault(); const el = document.querySelector(t.getAttribute('href')); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (d.day) { S.filmDay = d.day; S.focus = null; return render(); }
+  if (d.filmed) { S.filmed[d.filmed] = !S.filmed[d.filmed]; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if (d.focus) { S.focus = d.focus === 'off' ? null : +d.focus; render(); window.scrollTo(0, 0); return; }
+  if (d.wake !== undefined) { try { navigator.wakeLock.request('screen').then(() => { t.textContent = 'Screen stays on'; }).catch(() => toast("This browser won't keep the screen on.")); } catch (_) { toast("This browser won't keep the screen on."); } return; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#overlay').innerHTML) closeSheet();
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.addinput) {
+    const k = e.target.dataset.addinput, v = e.target.value.trim(); S.adding = null;
+    if (v && !OPTS[k].includes(v)) { OPTS[k].push(v); addVersion('Option list changed', { field: k, from: '', to: `Added "${v}"` }); toast(`Added "${v}". Saved as a new version.`); }
+    render();
+  }
+  if (e.key === 'Enter' && e.target.id && e.target.id.startsWith('note-')) { const b = document.querySelector(`[data-addnote="${e.target.id.slice(5)}"]`); b && b.click(); }
+  const h = e.target.closest && e.target.closest('.track .h');
+  if (h && ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); nudge(h, ['ArrowRight', 'ArrowUp'].includes(e.key) ? 1 : -1); }
+});
+document.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.addinput) setTimeout(() => { if (S.adding) { S.adding = null; render(); } }, 150); });
+
+/* Meter dragging */
+function setEnd(key, end, v, scale) {
+  const r = S.targets[key]; v = Math.max(0, Math.min(scale, v));
+  if (end === 'lo') v = Math.min(v, r[1]); else v = Math.max(v, r[0]);
+  const idx = end === 'lo' ? 0 : 1; if (r[idx] === v) return false;
+  const from = `${r[0]} to ${r[1]}`; r[idx] = v; addVersion('Mix ranges changed', { field: TARGET_LABEL[key], from, to: `${r[0]} to ${r[1]}` });
+  paintMeters(); return true;
+}
+function nudge(h, d) { const row = h.closest('.mrow'); const key = row.dataset.key, end = h.dataset.end; setEnd(key, end, S.targets[key][end === 'lo' ? 0 : 1] + d, +row.dataset.scale); }
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.track .h'); if (!h) return;
+  e.preventDefault(); h.focus(); h.setPointerCapture(e.pointerId);
+  const row = h.closest('.mrow'), track = row.querySelector('.track'), key = row.dataset.key, end = h.dataset.end, scale = +row.dataset.scale;
+  const mv = ev => { const r = track.getBoundingClientRect(); const cell = r.width / (scale + 1); const raw = Math.round((ev.clientX - r.left) / cell); setEnd(key, end, end === 'lo' ? raw : raw - 1, scale); };
+  const up = () => { h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); };
+  h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+});
+
+render();
+new MutationObserver(() => { if (document.querySelector('.mrow')) paintMeters(); }).observe($('#main'), { childList: true });
+if (document.querySelector('.mrow')) paintMeters();
+</script>

@@ -1,0 +1,1739 @@
+<title>Mellonhead Content Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap">
+<style>
+/* Layout: phone-first single column, bottom tabs; laptop gets a left rail and a centered work column.
+   The felt landscape (trailhead to campfire) is the header band of every screen, each screen showing its own stretch of the trail.
+   Felt animals appear as framed photos where agents act. Text always sits on white or pale sage.
+   Single light theme by choice: the brand rules out dark backgrounds. */
+:root {
+  color-scheme: light;
+  --ground: #EBF0E5;
+  --paper: #FFFFFF;
+  --sage: #B7C4A8;
+  --sage-soft: #DDE5D4;
+  --line: #CAD3C0;
+  --ink: #1F2A24;
+  --ink-2: #48544D;
+  --ink-3: #66726B;
+  --coral: #F46665;       /* Mellonhead coral: shapes, dots, edges, rings. Never a fill behind ink text. */
+  --peach: #F6B79A;
+  --forest: #23402F;
+  --bluegreen: #24485A;
+  --moss: #7E8F3A;
+  --plum: #5B3F63;
+  --lavender: #9D88B8;
+  --kraft: #C4A27A;
+  --kraft-ink: #3B2C1A;
+  --go: #6F8F3A;          /* readiness: green */
+  --caution: #D9A441;     /* readiness: yellow */
+  --gut-no: #7A5230;      /* gut check: no (warm brown, the stoplight's third light) */
+  --hover: #F6F9F3;
+  --font: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 14px;
+  --shadow: 0 1px 0 rgba(31,42,36,.06), 0 6px 18px -10px rgba(31,42,36,.25);
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--bluegreen); }
+:focus-visible { outline: 3px solid var(--bluegreen); outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* ---------- Shell ---------- */
+.rail { display: none; }
+main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 calc(110px + env(safe-area-inset-bottom, 0px));
+  max-width: 880px; margin: 0 auto;
+}
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--paper); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+}
+.tab { min-height: 56px; border: 0; background: none; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.tab svg { width: 24px; height: 24px; }
+.tab[aria-current="page"] { color: var(--forest); font-weight: 700; }
+.tab[aria-current="page"] .tab-ico { background: var(--sage-soft); }
+.tab-ico { width: 52px; height: 30px; border-radius: 15px; display: grid; place-items: center; }
+@media (min-width: 960px) {
+  .app { display: grid; grid-template-columns: 240px 1fr; }
+  .tabbar { display: none; }
+  .rail { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; padding: 0 14px 24px; background: var(--paper); border-right: 1px solid var(--line); }
+  .rail-band { margin: 0 -14px 12px; height: 70px; overflow: hidden; }
+  .rail-band img { width: 100%; height: 100%; object-fit: cover; object-position: 30% 62%; display: block; }
+  .rail-brand { font-weight: 700; font-size: 17px; padding: 4px 10px 14px; line-height: 1.2; }
+  .rail-brand small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-3); }
+  .rail button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border: 0; border-radius: 10px; background: none; text-align: left; color: var(--ink-2); font-weight: 500; width: 100%; }
+  .rail button svg { width: 22px; height: 22px; }
+  .rail button[aria-current="page"] { background: var(--sage-soft); color: var(--forest); font-weight: 700; }
+  .rail-foot { margin-top: auto; font-size: 12px; color: var(--ink-3); padding: 0 10px; }
+  main { padding-bottom: 64px; width: 100%; }
+}
+
+/* ---------- Mockup bar ---------- */
+.mockbar { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; padding: 8px 0; font-size: 12px; color: var(--ink-3); }
+.mockbar .seg button { min-height: 32px; font-size: 12px; }
+
+/* ---------- Felt frame pieces ---------- */
+.band { height: 92px; overflow: hidden; margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); position: relative; }
+.band img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (min-width: 700px) { .band { height: 128px; margin: 0; border-radius: 0 0 18px 18px; } }
+.screen-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 16px 0 14px; flex-wrap: wrap; }
+.screen-head h1 { font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; }
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+.tag { position: relative; display: inline-flex; align-items: center; gap: 6px; font-family: var(--hand); font-weight: 700; font-size: 20px; line-height: 1; color: var(--kraft-ink); background: var(--kraft); padding: 5px 12px 5px 22px; border-radius: 4px 9px 9px 4px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); white-space: nowrap; }
+.tag::before { content: ""; position: absolute; left: 11px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 1.5px rgba(59,44,26,.45); }
+.tag.sm { font-size: 17px; padding: 3px 10px 3px 20px; }
+.polaroid { background: var(--paper); padding: 5px 5px 4px; box-shadow: 0 2px 10px -3px rgba(31,42,36,.35); transform: rotate(-3deg); display: grid; gap: 2px; flex: none; width: 96px; }
+.polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; max-width: 100%; }
+.polaroid figcaption { font-family: var(--hand); font-size: 17px; font-weight: 700; text-align: center; color: var(--kraft-ink); line-height: 1.1; }
+.polaroid.r { transform: rotate(3deg); }
+.felt-c { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex: none; border: 3px solid var(--paper); box-shadow: 0 1px 6px -2px rgba(31,42,36,.4); display: block; }
+.agent-note { display: flex; gap: 12px; align-items: center; padding: 12px 14px; }
+.agent-note p { font-size: 14px; min-width: 0; }
+.agent-note strong { display: block; }
+
+/* ---------- Common ---------- */
+.card { background: var(--paper); border-radius: var(--r); box-shadow: var(--shadow); }
+.section { display: grid; gap: 12px; margin-top: 26px; }
+.section > h2, .h2 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.count-pill { font-size: 12px; font-weight: 600; background: var(--sage-soft); color: var(--ink-2); border-radius: 999px; padding: 2px 9px; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: var(--ink); }
+.btn.primary { background: var(--forest); border-color: var(--forest); color: #fff; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn.sm { min-height: 40px; padding: 0 12px; font-size: 13px; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary:hover { background: #1b3325; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: var(--ground); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.ok { display: inline-flex; align-items: center; gap: 5px; background: var(--sage-soft); color: var(--forest); font-weight: 600; font-size: 12.5px; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.drafted { font-size: 11px; font-weight: 600; color: var(--ink-3); border: 1px dashed var(--ink-3); border-radius: 999px; padding: 0 7px; line-height: 18px; white-space: nowrap; }
+.muted { color: var(--ink-3); }
+.small { font-size: 13px; }
+.mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+.example-note { font-size: 12px; color: var(--ink-3); margin-top: 28px; text-align: center; }
+.seg { display: inline-flex; background: var(--ground); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { min-height: 38px; min-width: 44px; padding: 0 10px; border: 0; background: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--forest); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.xbtn { width: 44px; height: 44px; border-radius: 12px; border: 0; background: none; display: grid; place-items: center; color: var(--ink-3); flex: none; }
+.xbtn:hover { background: var(--ground); color: var(--ink); }
+
+/* ---------- Off-target flag: two treatments to choose from ---------- */
+/* Coral dot: a pill with a big coral dot, card untouched. Coral edge: no pill, a thick coral stripe down the card and under the words. */
+.flag { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12.5px; white-space: nowrap; color: var(--ink); }
+:root[data-flag="dot"] .flag { background: var(--paper); border: 1.5px solid var(--coral); border-radius: 999px; padding: 2px 10px 2px 7px; }
+:root[data-flag="dot"] .flag::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--coral); flex: none; }
+:root[data-flag="edge"] .flag { padding: 0; border-radius: 0; text-decoration: underline 3px var(--coral); text-underline-offset: 4px; }
+:root[data-flag="edge"] .card.edge-on { box-shadow: inset 7px 0 0 var(--coral), var(--shadow); }
+:root[data-flag="edge"] .mrow.edge-on { box-shadow: inset 4px 0 0 var(--coral); }
+
+/* ---------- Readiness light ---------- */
+.ready { display: flex; gap: 12px; align-items: center; padding: 12px 14px; }
+.lamp { display: inline-flex; gap: 4px; padding: 5px 6px; background: var(--ink); border-radius: 999px; flex: none; }
+.lamp i { width: 14px; height: 14px; border-radius: 50%; background: #3E4A43; display: block; }
+.lamp.red i:nth-child(1) { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+.lamp.yellow i:nth-child(2) { background: var(--caution); box-shadow: 0 0 8px var(--caution); }
+.lamp.green i:nth-child(3) { background: #9DC35A; box-shadow: 0 0 8px #9DC35A; }
+.ready .what { min-width: 0; display: grid; gap: 1px; }
+.ready .what strong { font-size: 15px; }
+.ready .what span { font-size: 13.5px; color: var(--ink-2); }
+.rdot { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.rdot i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.rdot.green i { background: var(--go); } .rdot.yellow i { background: var(--caution); } .rdot.red i { background: var(--coral); }
+
+/* ---------- Ideas ---------- */
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { flex: none; min-height: 42px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: 14px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 8px; }
+.tabs button[aria-selected="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
+.tabs button[aria-selected="true"] .count-pill { background: rgba(255,255,255,.18); color: #fff; }
+.idea-grid { display: grid; gap: 12px; }
+@media (min-width: 700px) { .idea-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.idea-card { padding: 14px 14px 8px; display: grid; gap: 9px; }
+.idea-card h3 { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.idea-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.srcline { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; min-width: 0; }
+.srcline span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hookline { font-size: 13.5px; color: var(--ink-2); border-left: 3px solid var(--sage); padding: 2px 0 2px 10px; }
+.hookline.pick { border-left-color: var(--kraft); color: var(--kraft-ink); font-weight: 600; }
+.card-actions { display: flex; gap: 2px; border-top: 1px solid var(--ground); padding-top: 6px; margin: 0 -6px; flex-wrap: wrap; }
+.card-actions .btn { border-color: transparent; background: none; min-height: 42px; padding: 0 10px; color: var(--ink-2); }
+.card-actions .btn:hover { background: var(--ground); }
+.card-actions .btn.go { color: var(--forest); }
+.card-actions .open { margin-left: auto; color: var(--forest); }
+.why { font-size: 14px; background: var(--ground); border-radius: 10px; padding: 8px 12px; }
+.why b { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: block; }
+.rehook-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink); background: var(--paper); border: 1.5px solid var(--coral); border-radius: 999px; padding: 2px 10px 2px 8px; justify-self: start; }
+.rehook-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--coral); }
+.empty { padding: 26px 20px; text-align: center; display: grid; justify-items: center; gap: 10px; }
+
+/* ---------- Plan week ---------- */
+.weeknav { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 8px; padding: 14px 0 6px; }
+.weeknav .mid { text-align: center; min-width: 0; }
+.weeknav h1 { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.weeknav .sub { font-size: 13px; color: var(--ink-2); }
+.arrow { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; color: var(--forest); }
+.arrow[disabled] { opacity: .35; cursor: default; }
+.lockstamp { justify-self: center; }
+.trail { padding: 12px 12px 10px; }
+.trail-in { max-width: 560px; margin: 0 auto; }
+.trail svg { width: 100%; height: auto; display: block; overflow: visible; }
+.trail-labels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; font-size: 11.5px; line-height: 1.25; color: var(--ink-3); margin-top: 4px; }
+.trail-labels .cur { color: var(--ink); font-weight: 700; }
+.trail-labels .done { color: var(--forest); font-weight: 600; }
+.deck { display: grid; gap: 10px; }
+.deck-card { display: grid; grid-template-columns: 1fr auto; gap: 4px 6px; padding: 12px 6px 12px 14px; align-items: start; }
+.deck-card .body { display: grid; gap: 6px; min-width: 0; }
+.deck-card h3 { font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+.deck-card .open-link { border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.deck-card .open-link:hover h3 { text-decoration: underline; text-decoration-color: var(--sage); text-underline-offset: 3px; }
+.deck-line { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; color: var(--ink-2); align-items: center; }
+.st { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 9px; background: var(--sage-soft); color: var(--forest); white-space: nowrap; }
+.st.in-progress { background: #E2E8F0; color: var(--bluegreen); }
+.st.scheduled { background: #EDE6F2; color: var(--plum); }
+.st.published { background: var(--forest); color: #fff; }
+.after-lock { font-size: 11.5px; font-weight: 600; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
+.mixhead { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+.dimlist { display: grid; gap: 8px; }
+.dimrow { overflow: hidden; }
+.dim-toggle { width: 100%; border: 0; background: none; text-align: left; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; min-height: 56px; }
+.dim-toggle:hover { background: var(--hover); }
+.dim-toggle .t { font-weight: 700; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dim-toggle .line { grid-column: 1; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.dim-toggle .chev { grid-row: 1 / span 2; grid-column: 2; color: var(--ink-3); transition: transform .15s; }
+.dim-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.win { font-size: 10.5px; font-weight: 700; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; text-transform: uppercase; letter-spacing: .05em; }
+.dim-body { padding: 0 14px 10px; display: grid; gap: 4px; }
+.fixes { display: grid; gap: 8px; background: var(--ground); border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+.fixes .fx-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.fix { display: grid; gap: 6px; }
+.fix p { font-size: 14px; font-weight: 600; }
+.cand { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--paper); border-radius: 10px; padding: 4px 4px 4px 12px; }
+.cand span { font-size: 13.5px; min-width: 0; }
+.cand .btn { flex: none; }
+.dim-note { font-size: 12.5px; color: var(--ink-3); }
+.mrow { padding: 10px 0 6px; display: grid; gap: 6px; border-top: 1px solid var(--ground); }
+.mrow.bad { padding-left: 10px; margin-left: -10px; }
+.mrow-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mrow-head .lab { font-weight: 600; font-size: 14px; }
+.mrow-head .cnt { font-weight: 700; font-size: 15px; }
+.mrow-head .tgt { font-size: 12.5px; color: var(--ink-3); }
+.mrow-head .flag, .mrow-head .ok { margin-left: auto; font-size: 11.5px; }
+.track { position: relative; height: 34px; margin: 0 4px; touch-action: none; }
+.track .base { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 3px; background: var(--ground); }
+.track .band2 { position: absolute; top: 9px; height: 16px; border-radius: 8px; background: var(--sage); }
+.track .tick { position: absolute; top: 15px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--line); }
+.track .marker { position: absolute; top: 5px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--forest); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; z-index: 2; pointer-events: none; transition: left .15s; }
+.mrow.bad .marker { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 3px var(--coral); }
+.track .h { position: absolute; top: -5px; width: 44px; height: 44px; margin-left: -22px; border: 0; background: none; padding: 0; z-index: 3; touch-action: none; cursor: ew-resize; }
+.track .h::before { content: ""; position: absolute; left: 18px; top: 9px; width: 8px; height: 26px; border-radius: 4px; background: var(--paper); border: 2px solid var(--forest); }
+.track .h:focus-visible { outline: none; }
+.track .h:focus-visible::before { outline: 3px solid var(--bluegreen); outline-offset: 2px; }
+.scale { position: relative; height: 14px; margin: 0 4px; font-size: 10.5px; color: var(--ink-3); }
+.scale span { position: absolute; transform: translateX(-50%); }
+.switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; border: 0; background: none; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 0; }
+.switch .sw { width: 42px; height: 24px; border-radius: 12px; background: var(--line); position: relative; transition: background .15s; flex: none; }
+.switch .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch[aria-checked="true"] .sw { background: var(--forest); }
+.switch[aria-checked="true"] .sw::after { left: 21px; }
+.lockcard { padding: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.lockcard .lc-body { flex: 1; min-width: 200px; display: grid; gap: 8px; }
+.lockcard h2 { font-size: 18px; }
+.lock-btn { min-height: 56px; font-size: 16px; padding: 0 22px; }
+.confirm { display: grid; gap: 8px; background: var(--ground); border-radius: 12px; padding: 10px 12px; }
+.past-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 14px; border-bottom: 1px solid var(--ground); align-items: center; }
+.past-row:last-child { border-bottom: 0; }
+.past-row .tt { font-weight: 600; font-size: 14.5px; min-width: 0; }
+.past-row .meta { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--ink-3); }
+.ph-chart { height: 60px; border-radius: 10px; border: 1.5px dashed var(--line); overflow: hidden; }
+.ph-chart svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- Idea ---------- */
+.back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 0; background: none; color: var(--forest); font-weight: 600; padding: 0; margin-top: 8px; }
+.idea-title { font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; }
+.flow { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; margin-top: 12px; padding: 2px; }
+.flow::-webkit-scrollbar { display: none; }
+.flow button { flex: none; min-height: 40px; padding: 0 12px 0 18px; border: 1px solid var(--line); background: var(--paper); font-size: 13px; font-weight: 600; color: var(--ink-2); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 10px 50%); margin-right: -6px; }
+.flow button:first-child { clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); padding-left: 12px; border-radius: 10px 0 0 10px; }
+.flow button.past { background: var(--sage-soft); color: var(--forest); }
+.flow button[aria-current="step"] { background: var(--forest); color: #fff; border-color: var(--forest); }
+.flow button.auto { color: var(--ink-3); cursor: default; }
+.status-side { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.stage-line { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
+.stage-line .y { color: var(--forest); font-weight: 600; }
+.stage-line .y::before { content: "✓ "; }
+.stage-line .n::before { content: "○ "; }
+.pillbtn { min-height: 36px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 0 12px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.top-row { display: grid; gap: 12px; margin-top: 16px; }
+@media (min-width: 640px) { .top-row { grid-template-columns: 1fr auto; align-items: stretch; } }
+.chatbtn { min-height: 52px; }
+.design { display: grid; gap: 12px; }
+@media (min-width: 780px) { .design { grid-template-columns: 1.55fr 1fr; align-items: start; } }
+.brief { padding: 16px 18px; display: grid; gap: 12px; }
+.pitch { font-size: 19px; line-height: 1.75; font-weight: 400; letter-spacing: -.005em; }
+.bp { display: inline; font: inherit; font-weight: 700; color: var(--ink); background: none; border: 0; padding: 0 1px; border-bottom: 2.5px solid var(--forest); border-radius: 0; cursor: pointer; line-height: 1.3; }
+.bp:hover { background: var(--sage-soft); }
+.bp.is-drafted { font-weight: 600; color: var(--ink-2); border-bottom: 2.5px dashed var(--ink-3); }
+.bp.empty { color: var(--ink-3); font-weight: 500; border-bottom-style: dotted; }
+.bp.flash { animation: flash 1.2s ease; }
+@keyframes flash { from { background: var(--sage-soft); } to { background: transparent; } }
+.bp-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+.bp-legend i { display: inline-block; width: 22px; vertical-align: middle; margin-right: 6px; border-bottom: 2.5px solid var(--forest); }
+.bp-legend i.d { border-bottom: 2.5px dashed var(--ink-3); }
+.angle { border-top: 1px solid var(--ground); padding-top: 12px; display: grid; gap: 4px; }
+.angle button { border: 0; background: none; padding: 6px 8px; margin: 0 -8px; text-align: left; border-radius: 8px; font-size: 15px; line-height: 1.5; }
+.angle button:hover { background: var(--hover); }
+.links { display: grid; gap: 10px; border-top: 1px solid var(--ground); padding-top: 12px; }
+.linkrow { display: grid; grid-template-columns: 70px 1fr; gap: 10px; align-items: baseline; font-size: 14px; }
+.linkrow .k { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.linkrow a { font-weight: 600; word-break: break-word; }
+.nox { display: flex; gap: 10px; align-items: center; background: var(--ground); border-radius: 12px; padding: 8px 12px 8px 8px; font-size: 13.5px; }
+.nox .felt-c { width: 44px; height: 44px; }
+.look { padding: 4px 0; }
+.look h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); padding: 12px 16px 2px; display: flex; justify-content: space-between; }
+.field { display: grid; grid-template-columns: 74px 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 16px; border: 0; background: none; text-align: left; border-bottom: 1px solid var(--ground); }
+.field:last-child { border-bottom: 0; }
+.field:hover { background: var(--hover); }
+.field .k { font-size: 12.5px; color: var(--ink-3); font-weight: 500; }
+.field .v { font-weight: 600; font-size: 14px; min-width: 0; }
+.field .v.long { font-weight: 400; }
+.field .chev { color: var(--ink-3); }
+.rehook { display: grid; gap: 10px; padding: 14px 16px; border-radius: var(--r); background: var(--paper); border: 2px solid var(--coral); }
+.hooks { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 10px; margin: 0 -2px; }
+@media (min-width: 700px) { .hooks { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); overflow: visible; } }
+.hook { scroll-snap-align: start; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 2px solid transparent; min-width: 0; }
+.hook.chosen { border-color: var(--forest); }
+.hook.stale .spoken { color: var(--ink-2); }
+.hook .spoken { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.hook dl { margin: 0; display: grid; gap: 6px; font-size: 13px; }
+.hook dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.hook dd { margin: 0; }
+.hook .btn { margin-top: auto; width: 100%; }
+.hook .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.made-before { font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.beats { margin: 0; padding: 0; list-style: none; counter-reset: b; display: grid; gap: 8px; }
+.beats li { counter-increment: b; display: grid; grid-template-columns: 26px 1fr; gap: 8px; }
+.beats li::before { content: counter(b); font-weight: 700; font-size: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--sage-soft); color: var(--forest); display: grid; place-items: center; margin-top: 1px; }
+.gutlist { display: grid; gap: 8px; }
+@media (min-width: 760px) { .gutlist { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; } }
+.gcard { padding: 8px 8px 10px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; min-width: 0; }
+.gcard .who { font-weight: 700; font-size: 15px; line-height: 1.2; min-width: 0; }
+.gcard .who small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-3); }
+.gmark { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 0 12px 0 9px; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.gmark:hover { background: var(--hover); }
+.gmark i { width: 15px; height: 15px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 2px var(--line); flex: none; }
+.gmark.yes i { background: var(--go); box-shadow: none; }
+.gmark.unsure i { background: var(--caution); box-shadow: none; }
+.gmark.no i { background: var(--gut-no); box-shadow: none; }
+.gut-key { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); margin-top: -4px; }
+.gut-key i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.tip { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: 6px; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.tip b { font-family: var(--hand); font-size: 16px; color: var(--kraft-ink); line-height: 1; margin-right: 4px; }
+/* "Needs you": where her words would make the draft better */
+.needs { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--kraft-ink); background: #EFE3D3; border-radius: 999px; padding: 1px 9px 1px 7px; line-height: 18px; vertical-align: 1px; white-space: normal; }
+.needs::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--kraft-ink); flex: none; }
+.peg-xs { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: 50% 22%; border: 2px solid var(--paper); box-shadow: 0 1px 4px -1px rgba(31,42,36,.4); flex: none; display: inline-block; vertical-align: middle; }
+.waiting { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink); font-weight: 600; margin-top: 4px; }
+.note { padding: 12px 16px; border-bottom: 1px solid var(--ground); display: grid; gap: 4px; }
+.note:last-child { border-bottom: 0; }
+.note .who { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+
+/* ---------- Sheet, toast ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(31,42,36,.38); z-index: 40; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--paper); border-radius: 20px 20px 0 0; max-height: 86vh; overflow: auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); box-shadow: 0 -10px 30px rgba(0,0,0,.15); }
+@media (min-width: 700px) { .sheet { left: 50%; right: auto; width: 540px; transform: translateX(-50%); bottom: 24px; border-radius: 20px; } }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+.sheet h3 { font-size: 18px; margin-bottom: 4px; }
+.sheet .hint { font-size: 13px; color: var(--ink-3); margin-bottom: 12px; }
+.optlist { display: grid; gap: 6px; }
+.opt { min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); text-align: left; padding: 8px 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.opt[aria-pressed="true"] { border: 2px solid var(--forest); background: #F4F7F1; }
+.opt small { font-weight: 400; color: var(--ink-3); }
+textarea, input[type="text"], input[type="url"], input[type="date"], select { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); font-size: 15px; line-height: 1.45; }
+textarea { min-height: 100px; resize: vertical; }
+.sheet-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap; }
+.form { display: grid; gap: 14px; }
+.form label, .form .lbl { font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; }
+.form .opt-l { font-weight: 400; color: var(--ink-3); }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.quick button { min-height: 36px; border-radius: 999px; border: 1px dashed var(--ink-3); background: var(--paper); padding: 0 12px; font-size: 13px; }
+.chat-preview { background: var(--ground); border-radius: 12px; padding: 12px; display: grid; gap: 8px; font-size: 14px; }
+.chat-preview .msg { background: var(--paper); border-radius: 10px; padding: 10px 12px; }
+.chat-preview .msg b { font-size: 12px; color: var(--ink-3); display: block; }
+.stub { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); border: 1px dashed var(--ink-3); border-radius: 6px; padding: 1px 6px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 50; background: var(--ink); color: #fff; padding: 8px 8px 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; max-width: calc(100% - 32px); width: max-content; box-shadow: 0 8px 24px rgba(0,0,0,.2); display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.toast button { min-height: 36px; border-radius: 8px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-weight: 700; padding: 0 12px; flex: none; }
+@media (min-width: 960px) { .toast { bottom: 28px; } }
+
+/* ---------- Config ---------- */
+.jump { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.jump::-webkit-scrollbar { display: none; }
+.jump a { flex: none; min-height: 38px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-size: 13px; font-weight: 600; }
+.cfg { padding: 4px 0; }
+.cfg-item { padding: 14px 16px; border-bottom: 1px solid var(--ground); display: grid; gap: 8px; }
+.cfg-item:last-child { border-bottom: 0; }
+.cfg-item .k { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.editable { border: 0; background: none; text-align: left; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; width: calc(100% + 16px); display: block; line-height: 1.5; }
+.editable:hover { background: var(--hover); }
+.editable .pen { color: var(--ink-3); font-size: 12px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
+.pillar-row { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start; }
+.pillar-row .dot { margin-top: 7px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vchip { min-height: 40px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 0 2px 0 14px; font-size: 13.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 2px; }
+.vchip .x { width: 34px; height: 34px; border-radius: 50%; border: 0; background: none; color: var(--ink-3); display: grid; place-items: center; }
+.vchip .x:hover { background: var(--ground); color: var(--ink); }
+.vchip.retired { background: var(--ground); color: var(--ink-3); border-style: dashed; padding-right: 4px; }
+.vchip.retired .restore { min-height: 32px; border: 0; background: none; color: var(--forest); font-weight: 700; font-size: 12.5px; padding: 0 8px; }
+.chipbtn { min-height: 40px; border: 1px dashed var(--forest); background: var(--paper); border-radius: 999px; padding: 0 14px; font-size: 13.5px; font-weight: 600; color: var(--forest); display: inline-flex; align-items: center; }
+.chipbtn input { border: 0; padding: 0; width: 9em; font-size: 13.5px; background: none; }
+.chipbtn input:focus { outline: none; }
+.retired-toggle { border: 0; background: none; padding: 4px 0; min-height: 36px; font-size: 13px; font-weight: 600; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
+.retired-toggle .chev { transition: transform .15s; display: inline-flex; }
+.retired-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.range-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--ground); }
+.range-row:last-child { border-bottom: 0; }
+.range-row .lab { font-size: 14px; font-weight: 500; min-width: 0; }
+.range-row .lab small { color: var(--ink-3); display: block; font-size: 12px; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font-weight: 700; font-size: 17px; line-height: 1; }
+.stepper output { min-width: 26px; text-align: center; font-weight: 700; }
+.stepper .to { color: var(--ink-3); font-size: 12px; margin: 0 4px; }
+.versions { list-style: none; margin: 0; padding: 0; }
+.versions li { border-bottom: 1px solid var(--ground); }
+.versions li:last-child { border-bottom: 0; }
+.ver { width: 100%; border: 0; background: none; text-align: left; padding: 12px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; min-height: 56px; }
+.ver .vn { font-weight: 700; font-size: 13px; background: var(--ground); border-radius: 8px; padding: 4px 8px; }
+.ver.current .vn { background: var(--forest); color: #fff; }
+.ver .vd { font-size: 12.5px; color: var(--ink-3); }
+.diff { padding: 0 16px 14px; display: grid; gap: 8px; font-size: 13.5px; }
+.diff .was { color: var(--ink-3); text-decoration: line-through; }
+
+/* ---------- Film ---------- */
+.film { font-size: 17px; }
+.film-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
+.days { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.days::-webkit-scrollbar { display: none; }
+.day { flex: none; min-height: 60px; min-width: 84px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; padding: 6px 12px; line-height: 1.15; font-weight: 600; }
+.day small { font-weight: 500; font-size: 12px; color: var(--ink-3); }
+.day[aria-pressed="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
+.day[aria-pressed="true"] small { color: #D6E2D0; }
+.progress { height: 10px; border-radius: 5px; background: var(--paper); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+.progress i { display: block; height: 100%; background: var(--moss); border-radius: 5px; transition: width .2s; }
+.film-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; }
+.checklist li { border-bottom: 1px solid var(--ground); }
+.checklist li:last-child { border-bottom: 0; }
+.ck { width: 100%; min-height: 50px; border: 0; background: none; display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 8px 16px; font-size: 16px; }
+.ck .box { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--forest); display: grid; place-items: center; color: #fff; }
+.ck[aria-pressed="true"] .box { background: var(--forest); }
+.ck[aria-pressed="true"] .txt { color: var(--ink-3); text-decoration: line-through; }
+.ck .slate-s { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; color: var(--kraft-ink); background: #EFE3D3; border-radius: 5px; padding: 1px 6px; }
+.prep-head { padding: 12px 16px 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.prep-head h2 { font-size: 18px; }
+.block { display: grid; gap: 12px; margin-top: 26px; }
+.block-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.block-head h2 { font-size: 21px; font-weight: 700; }
+.block-head .tag { font-size: 22px; }
+.setup { font-size: 14px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.setup::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.vlist { display: grid; gap: 14px; }
+.vid { padding: 18px; display: grid; gap: 16px; position: relative; }
+.vid.dragging { box-shadow: 0 16px 40px -10px rgba(31,42,36,.45); outline: 2px solid var(--forest); z-index: 5; }
+.vid-top { display: flex; align-items: flex-start; gap: 10px; }
+.vid-top .tt { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.slate { font-weight: 800; font-size: 15px; letter-spacing: .06em; background: var(--kraft); color: var(--kraft-ink); padding: 4px 10px; border-radius: 6px; justify-self: start; }
+.vid h3 { font-size: 20px; font-weight: 700; line-height: 1.25; }
+.handle { flex: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; touch-action: none; cursor: grab; color: var(--ink-2); }
+.say { font-size: 25px; font-weight: 700; line-height: 1.28; letter-spacing: -.01em; }
+.say-l { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.film-grid { display: grid; gap: 14px; }
+@media (min-width: 640px) { .film-grid.two { grid-template-columns: 1fr 1fr; } }
+.film-grid .v { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.film .beats { gap: 10px; }
+.film .beats li { font-size: 17px; grid-template-columns: 32px 1fr; }
+.film .beats li::before { width: 28px; height: 28px; font-size: 14px; }
+.edit-notes { font-size: 15px; background: var(--ground); border-radius: 10px; padding: 10px 12px; }
+.film-tips { display: grid; gap: 6px; }
+.film-tips p { font-size: 15px; }
+.film-tips b { font-weight: 700; }
+.vprep { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.vprep .ck { font-size: 15px; min-height: 46px; }
+.script-toggle { width: 100%; min-height: 54px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; font-weight: 700; font-size: 16px; }
+.script-toggle .chev { transition: transform .15s; display: inline-flex; color: var(--ink-3); }
+.script-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.script { display: grid; gap: 8px; }
+.sline-wrap { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+.sline { font-size: 20px; line-height: 1.45; font-weight: 500; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); min-height: 44px; outline: none; }
+.sline:focus { border-color: var(--forest); box-shadow: 0 0 0 3px var(--sage-soft); }
+.sline.is-drafted { border-style: dashed; border-color: var(--ink-3); color: var(--ink-2); }
+.filmed-btn { min-height: 68px; width: 100%; border-radius: 16px; border: 2.5px solid var(--forest); background: var(--paper); color: var(--forest); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.filmed-btn .box { width: 34px; height: 34px; border-radius: 9px; border: 2.5px solid var(--forest); display: grid; place-items: center; }
+.vid.done .filmed-btn { background: var(--forest); color: #fff; }
+.vid.done .filmed-btn .box { background: #fff; color: var(--forest); border-color: #fff; }
+.vid.done { background: #F4F7F1; }
+.vid.done .detail { display: none; }
+.vid.done h3 { color: var(--ink-2); }
+.nohook { background: var(--paper); border: 2px solid var(--coral); border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.focusnav { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-top: 14px; background: var(--ground); padding: 8px 0; }
+@media (min-width: 960px) { .focusnav { bottom: 0; } }
+.focusnav .btn { min-height: 60px; font-size: 17px; }
+</style>
+
+<div class="app" id="app">
+  <nav class="rail" aria-label="Main">
+    <div class="rail-band" aria-hidden="true"><img src="assets/trail-band.jpg" alt=""></div>
+    <div class="rail-brand">Mellonhead<small>Content planner</small></div>
+    <div id="railnav" style="display:grid;gap:4px"></div>
+    <div class="rail-foot">Round 2 mockup · example data</div>
+  </nav>
+  <main id="main"></main>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<div id="overlay"></div>
+
+<script>
+/* ================= Icons ================= */
+const I = {
+  ideas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/></svg>',
+  plan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14.5l2.5 2.5L16 12.5"/></svg>',
+  film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/></svg>',
+  config: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4v6M5 14v6M12 4v3M12 11v9M19 4v9M19 17v3"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="9" r="2"/><circle cx="19" cy="15" r="2"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  fwd: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
+  chev: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  grip: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>',
+  check: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  link: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  chat: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>'
+};
+
+/* ================= Dates ================= */
+const TODAY = '2026-11-19';
+const CUR_WEEK = '2026-11-23';            /* the week she makes videos */
+const WEEKS = ['2026-11-09', '2026-11-16', '2026-11-23', '2026-11-30'];
+const pd = d => new Date(d + 'T12:00:00');
+const iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+const addDays = (d, n) => { const x = pd(d); x.setDate(x.getDate() + n); return iso(x); };
+const md = d => pd(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const wmd = d => pd(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+const fmtDate = d => pd(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function weekKind(w) { return w < CUR_WEEK ? 'past' : w === CUR_WEEK ? 'current' : 'future'; }
+function weekSub(w) {
+  const posts = `${md(addDays(w, 7))} to ${md(addDays(w, 13))}`;
+  if (weekKind(w) === 'past') return `Made ${md(w)} to ${md(addDays(w, 4))} · posts ${posts}`;
+  if (w === CUR_WEEK) return `Making now · film Wed Nov 25 · posts ${posts}`;
+  return `Next up · posts ${posts}`;
+}
+
+/* ================= Option lists (foundation.md, brief §5, D2) ================= */
+const PILLARS = [
+  { name: 'Value', color: 'var(--forest)', desc: 'Programs that build AI capability and drive business results. My programs in the wild live here, often as a series.', carries: 'Programs where teams shape it themselves' },
+  { name: 'Building', color: 'var(--bluegreen)', desc: "Building in the open: what I'm building right now, how, and what I'm struggling with.", carries: "I'm shaping mine, out loud" },
+  { name: 'Messy', color: 'var(--moss)', desc: "AI at work is messy: second-order effects, the little wins that show you're headed the right way, how to handle hard issues as they come.", carries: "What happens when it's done to people, and the small wins when it isn't" },
+  { name: 'Perspective', color: 'var(--plum)', desc: 'The bigger picture: technical innovation, upskilling and public policy, who gets left behind.', carries: 'Policy and upskilling decide who gets to shape it' },
+  { name: 'Grounded', color: 'var(--lavender)', desc: 'Staying grounded: I am more than my work; how I stay grounded and energized doing this work. Identity deconstruction lives here.', carries: "You're more than the work AI is changing" }
+];
+const pillarColor = n => (PILLARS.find(p => p.name === n) || {}).color || 'var(--line)';
+const OPTS = {
+  type: ['authority', 'storyline', 'personality', 'follow the signal'],
+  feeling: ['empowered', 'seen', 'inspired', 'motivated', 'cheeky', 'curious', 'optimistic'],
+  style: ['listicle', 'AI-ITA', 'workplace advice', 'Old Tech Panics', 'Tales From Tech Support', 'documenting my work', 'show and tell', 'hot take', 'skit', 'felt-world story', 'long-form cut'],
+  onCamera: ['talking head', 'skit', 'show and tell', 'felt world', 'outdoors', 'narrator'],
+  voice: ['Mariena', 'narrator', 'Fox (tech support)'],
+  harmHelp: ['harm', 'help', 'neutral'],
+  cta: ['none', 'follow', 'Mellonmail', 'resource landing page', 'GitHub link', 'comment question'],
+  hookFormat: ['question', 'bold claim', 'story in motion', 'reframe', 'visual reveal', 'stakes'],
+  series: ['Workplace advice', 'AI-ITA', 'Tales From Tech Support', 'Old Tech Panics', 'Unfolding now: the agent course'],
+  safety: ['blinded', 'clear']
+};
+const RETIRED = {
+  feeling: ['understood', 'called out', 'laughed', 'validated', 'hopeful', 'proud'],
+  style: ['my own ideas'], onCamera: [], voice: [], cta: [], hookFormat: [], series: ['Chatbot Court']
+};
+const TAKES = {
+  1: ['do it scared', "Yes, it's scary and uncomfortable. Grieve, then get started. Do it scared."],
+  2: ['guidance, not just policies', 'Everyone says "put a human in the loop." People need guidance, not just policies.'],
+  3: ['dollar values for tasks', 'Organizations need to assign dollar values to tasks and workflows, not one giant bucket of headcount costs.'],
+  9: ['an experimentation mindset', 'An experimentation mindset.'],
+  10: ['value what your people do', "If you don't value what your people do, your AI efforts will fail."],
+  13: ["AI isn't your everything", "AI doesn't need to be your everything. It shouldn't."],
+  16: ['business and people in balance', "Business impact and people go in balance. Not AI adoption for adoption's sake."]
+};
+const STORIES = {
+  grant: 'Grant agents for a philanthropy team',
+  letgo: 'Being let go, 12 months of identity crisis, finding the thread',
+  uncle: 'My uncle the logger'
+};
+const CTA_PHRASE = { none: 'no call to action', follow: 'a follow ask', Mellonmail: 'a Mellonmail plug', 'resource landing page': 'a resource link', 'GitHub link': 'a GitHub link', 'comment question': 'a comment question' };
+
+/* ================= Seed ideas (example data) ================= */
+const H = (spoken, onscreen, frame, format, payoff, rec) => ({ spoken, onscreen, frame, format, payoff, rec: !!rec });
+const L = (setup, outfit, location, props, edit) => ({ setup, outfit, location, props, edit });
+const S_ = (t, d, g) => ({ t, d: !!d, g: g || null });   /* g: what her words would add to this drafted line */
+const G = (t, gap) => ({ t, gap });                         /* a drafted beat with a gap she can fill */
+const base = { take: null, story: null, series: '', ep: null, safety: 'clear', hooks: [], chosen: null, beats: [], gut: {}, tips: null, notes: [], drafted: [], script: [], prep: [], slate: '', look: L('', '', '', '', ''), sourceLink: null, brief: '', origin: 'agent' };
+const mk = o => Object.assign(JSON.parse(JSON.stringify(base)), o);
+const IDEAS = [
+  mk({
+    id: 'tell-boss', title: 'Automated 60% of my job. Do I tell my boss?', status: 'on deck', week: CUR_WEEK, postDate: '2026-11-30',
+    summary: 'Someone automated most of their role and is weighing whether to tell their manager. My advice: tell them, and bring the dollar value of the time you freed.',
+    pillar: 'Messy', type: 'authority', style: 'workplace advice', onCamera: 'talking head', voice: 'Mariena', feeling: 'seen', harmHelp: 'help', cta: 'comment question', take: 3,
+    series: 'Workplace advice', ep: 2, origin: 'read',
+    brief: 'workplace-advice/stories/2026-11-15-automated-sixty-percent-tell-boss.md',
+    sourceLink: { label: 'Reddit post in r/antiwork', url: 'https://www.reddit.com/r/antiwork/' },
+    ready: ['yellow', 'Needs your take in your words. The dollar-value line is drafted.'],
+    hooks: [
+      H('Someone automated 60% of their job and wants to know if they should tell their boss.', 'Automated 60% of my job. Tell my boss?', 'Me holding the letter up to camera, eyebrows raised', 'question', 'Verdict at 0:08', true),
+      H('If you automated most of your job, the worst move is staying quiet.', "Don't hide it.", 'Close-up, finger to lips, then a head shake', 'bold claim', 'Reason at 0:05'),
+      H('Dear Mariena: I automated my job and my boss has no idea.', 'Dear Mariena...', 'Kraft envelope opening on the desk, overhead', 'story in motion', 'Letter ends 0:12'),
+      H("Your boss doesn't need to know you automated your job. They need to know what it's worth.", 'What is your time worth?', 'Me sliding a price tag across the desk', 'reframe', 'Dollar value at 0:06')
+    ],
+    beats: ['Read the letter: 60% automated, boss has no idea, afraid of being "found out"', G('My take: put a dollar value on the work you freed, the way customer service prices an inquiry', 'your take, in your words'), 'If it were me: tell them, with a plan for the hours you got back', 'Ask: what would you do?'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'not sure' },
+    tips: { Dawn: 'Say out loud that telling the boss protects the writer, not just the company.', Alex: 'Give him the one-line script: "Here is what that time is worth."', Paloma: 'Open on the letter so Paloma gets the plot first.' },
+    look: L('Desk, camera left', 'Green cardigan', 'Office corner', 'Letter on kraft paper', 'Captions on. Letter text as an on-screen card. Cut the pause before the verdict.'),
+    notes: [{ who: 'You in #tiktok, Nov 17', text: 'Love this one. Make sure the advice isn\'t "hide it."' }, { who: 'Orca in #tiktok, Nov 18', text: "Mark's storyboard is in the thread. Four hooks from Cody, recommended one first." }],
+    drafted: ['pillar', 'type', 'feeling', 'take', 'cta'], slate: 'A1 TELL BOSS',
+    prep: ['Print the letter on kraft paper', 'Pull up the Reddit post (for the exact wording)'],
+    script: [S_('Someone automated 60% of their job and wants to know if they should tell their boss.'), S_("Here's the letter.", false), S_('My take: put a dollar value on the time you freed up. Customer service already prices every inquiry.', true, 'your take, in your words'), S_('If it were me, I would tell them, and walk in with a plan for those hours.', true), S_('What would you do?')]
+  }),
+  mk({
+    id: 'chatbot-boss', title: 'My boss trusts the chatbot over us', status: 'on deck', week: CUR_WEEK, postDate: '2026-12-01',
+    summary: "A letter from someone whose boss pastes the team's analysis into ChatGPT and goes with the bot. My advice: bring one decision where the bot was confidently wrong, and offer a review step.",
+    pillar: 'Messy', type: 'authority', style: 'workplace advice', onCamera: 'talking head', voice: 'Mariena', feeling: 'seen', harmHelp: 'harm', cta: 'none', take: 2,
+    series: 'Workplace advice', ep: 3, origin: 'read',
+    brief: 'workplace-advice/stories/2026-11-15-boss-trusts-chatbot-over-team.md',
+    sourceLink: { label: 'Ask a Manager letter', url: 'https://www.askamanager.org/' },
+    ready: ['green', 'Your take is in, in your words (voice reply, Nov 19).'],
+    hooks: [
+      H('My boss trusts the chatbot over his own team. What do I do?', 'Boss trusts ChatGPT > us', 'Me reading the letter, slow look up to camera', 'question', 'Advice at 0:07', true),
+      H('Your boss picked the chatbot over you. Here is how you win that back.', 'Win it back', 'Me crossing my arms, then a grin', 'stakes', '0:05'),
+      H('The chatbot was confidently wrong. Nobody checked.', 'Nobody checked', 'Red pen circling a printout', 'bold claim', '0:06')
+    ],
+    chosen: 0,
+    beats: ['Read the letter', 'My take: "Everyone says put a human in the loop. People need guidance, not just policies."', 'If it were me: one decision where the bot was confidently wrong, and a review step', 'Close: your expertise is the loop'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'yes' },
+    tips: { Dawn: 'Name the cost to the team when the bot wins by default.', Alex: 'The review step is his how. Say it slowly.', Paloma: 'Let the slow look up land before you speak.' },
+    look: L('Desk, camera left', 'Green cardigan', 'Office corner', 'Letter on kraft paper', 'Captions on. Punch in on "confidently wrong."'),
+    notes: [{ who: 'You in #tiktok, Nov 19 (voice take)', text: "The human in the loop isn't a checkbox. It's somebody who knows what good looks like." }],
+    drafted: ['harmHelp'], slate: 'A2 BOSS BOT'
+  }),
+  mk({
+    id: 'husband', title: "AI-ITA: My coworker husband says 'just ask AI'", status: 'on deck', week: CUR_WEEK, postDate: '2026-12-02',
+    summary: 'Read a real post: her husband, also her coworker, answers every question with "just ask AI." My verdict, then ChatGPT\'s.',
+    pillar: 'Messy', type: 'personality', style: 'AI-ITA', onCamera: 'talking head', voice: 'Mariena', feeling: 'cheeky', harmHelp: 'harm', cta: 'none', take: 13,
+    series: 'AI-ITA', ep: 1, origin: 'read',
+    brief: 'aita-ai/stories/2026-11-15-husband-says-ask-ai.md',
+    sourceLink: { label: 'Reddit post in r/AmItheAsshole', url: 'https://www.reddit.com/r/AmItheAsshole/' },
+    ready: ['yellow', 'Needs your verdict in your words.'],
+    hooks: [
+      H("My husband is my coworker, and his answer to everything is 'just ask AI.'", 'AI-ITA: Am I the AI-hole?', 'Peg-person judge on the desk, gavel down', 'story in motion', 'Verdict at 0:15', true),
+      H("Is he the AI-hole? Let's find out.", 'Is he the AI-hole?', 'Me squinting at my phone', 'question', '0:15'),
+      H('"Just ask AI" is not an answer. Or is it?', 'Just ask AI?', 'Me holding up a tiny felt gavel', 'reframe', '0:10')
+    ],
+    chosen: 0,
+    beats: ['Read the post, in a dramatic voice', G('My verdict: not the AI-hole, but close', 'your verdict, in your words'), "My take: AI doesn't need to be your everything", "ChatGPT's verdict, read flat"],
+    gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' },
+    tips: { Dawn: 'Keep the verdict kind to both of them.', Alex: 'Add one line on when asking AI is the right call.', Paloma: 'The dramatic read is the plot. Go big.' },
+    look: L('Couch, camera straight on', 'Green cardigan', 'Living room', 'Peg-person judge, tiny felt gavel', "Split screen for ChatGPT's verdict. Gavel sound on the cut."),
+    drafted: [], slate: 'A3 HUSBAND',
+    prep: ['Pull up the Reddit post', "Paste the post into ChatGPT and screenshot its verdict"],
+    script: [S_("My husband is my coworker, and his answer to everything is 'just ask AI.'"), S_('[Read the post, dramatic voice]'), S_("My verdict: not the AI-hole. But he's close.", true, 'your verdict, in your words'), S_("AI doesn't need to be your everything. It shouldn't be.", true), S_("Now here's what ChatGPT said.")]
+  }),
+  mk({
+    id: 'context', title: 'Copilot has your data. So why are its answers so generic?', status: 'in progress', week: CUR_WEEK, postDate: '2026-12-03',
+    summary: 'Walk through the scope brief I generated for the agent course: what I gave it (references, call transcripts, who it was for) and why the result was good.',
+    pillar: 'Value', type: 'authority', style: 'show and tell', onCamera: 'show and tell', voice: 'Mariena', feeling: 'empowered', harmHelp: 'help', cta: 'Mellonmail', ctaLink: "Brief template in this week's Mellonmail",
+    safety: 'blinded', origin: 'experience', brief: 'own-ideas/stories/2026-11-15-good-outputs-take-context.md',
+    ready: ['green', 'Your own work, shown on screen. Only the take is still drafted.'],
+    hooks: [
+      H('Copilot has all your data. So why are its answers so generic?', 'Same data. Better brief.', 'Split screen: generic answer next to the scope brief', 'question', 'The difference at 0:10', true),
+      H('I gave AI five things before I asked for anything.', '5 things first', 'Five kraft tags fanned on the desk', 'reframe', '0:04'),
+      H("The prompt wasn't the problem. The context was.", 'It was the context', 'Me tapping the printed brief', 'bold claim', '0:05')
+    ],
+    chosen: 0,
+    beats: ['Show the generic answer', "Show what I gave it: references, transcripts, who it's for", 'Show the brief, with stakeholder quotes (anonymized on screen)', G('Context makes the result', 'your take, in one line')],
+    gut: { Dawn: 'not sure', Alex: 'yes', Paloma: 'not sure' },
+    tips: { Dawn: 'Mention who the brief was for: real people on a real team.', Alex: 'This is pure how. Name all five inputs on screen.', Paloma: 'Start with the bad answer so there is a before and after.' },
+    look: L('Desk, camera left', 'Coral blouse', 'Office corner', 'Laptop, printed scope brief (anonymized)', 'Screen recording inserts from context-demo. Blur any client name.'),
+    drafted: ['take'], slate: 'B1 CONTEXT',
+    prep: ['Open the context-demo screen recording', 'Copilot tab with the generic answer, logged in', 'Print the anonymized scope brief'],
+    script: [S_('Copilot has all your data. So why are its answers so generic?'), S_("Here's what it gave me when I just asked.", true), S_('Now here are the five things I gave it first.', true), S_('Same data. Better brief.')]
+  }),
+  mk({
+    id: 'skills-stuck', title: 'The agents barely got used. The skills stuck.', status: 'on deck', week: CUR_WEEK, postDate: '2026-12-04',
+    summary: 'A team I worked with built grant-writing agents. They barely use the agents, but the skills stuck and the work changed from reactive to a pipeline.',
+    pillar: 'Value', type: 'storyline', style: 'documenting my work', onCamera: 'talking head', voice: 'Mariena', feeling: 'optimistic', harmHelp: 'help', cta: 'none', take: 10, story: 'grant',
+    series: 'Unfolding now: the agent course', ep: 3, safety: 'blinded', origin: 'experience',
+    brief: 'Story bank: grant agents for a philanthropy team',
+    ready: ['green', 'Your story, your take. Waiting on permission to quote the VP.'],
+    hooks: [
+      H('We built a team AI agents. They barely use them. And it worked anyway.', "The agents flopped. The team didn't.", 'Me shrugging at a laptop, then a slow smile', 'reframe', 'Result at 0:09', true),
+      H('More grants by October than all of last year, and the agents had almost nothing to do with it.', "It wasn't the agents", 'Paper stack of grant folders, one by one', 'stakes', '0:06'),
+      H('Nobody uses the agents we built. Best project of my year.', 'Best project of my year', 'Me laughing, hand over face', 'bold claim', '0:05')
+    ],
+    chosen: 0,
+    beats: ['The setup: a team I worked with, grant agents', 'The twist: they barely use the agents', G('What changed: AI in the daily workflow, reactive to a pipeline', "the VP's yes to quote her"), "My take: if you don't value what your people do, your AI efforts fail"],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'yes' },
+    tips: { Dawn: 'Credit the team, not the tools.', Alex: 'One sentence on what a pipeline looks like on a Monday.', Paloma: 'Hold the twist for a beat before you explain it.' },
+    look: L('Desk, camera left', 'Coral blouse', 'Office corner', 'Stack of folders', 'No numbers on screen until the VP says yes.'),
+    notes: [{ who: 'Orca in #tiktok, Nov 18', text: 'Blinded. Say "a team I worked with." Permission to quote the VP is still open.' }],
+    drafted: ['feeling'], slate: 'B2 SKILLS'
+  }),
+  mk({
+    id: 'chatbot-said', title: "Tales From Tech Support: 'But the chatbot said'", status: 'on deck', week: CUR_WEEK, postDate: '2026-12-05',
+    summary: "A caller insists the chatbot promised a refund policy that doesn't exist. Told in felt: Fox answers the help line. Then the turn: who is accountable when the bot makes it up?",
+    pillar: 'Messy', type: 'storyline', style: 'Tales From Tech Support', onCamera: 'felt world', voice: 'narrator', feeling: 'seen', harmHelp: 'harm', cta: 'none', take: 2,
+    series: 'Tales From Tech Support', ep: 1, origin: 'read',
+    brief: 'tech-support-tales/stories/2026-11-15-the-chatbot-said.md',
+    sourceLink: { label: 'Reddit post in r/talesfromtechsupport', url: 'https://www.reddit.com/r/talesfromtechsupport/' },
+    ready: ['yellow', 'Needs the turn in your words: who is accountable?'],
+    hooks: [
+      H("The ticket said: 'But the chatbot said I could.'", 'Tales From Tech Support', 'Felt fox in a headset answers a paper phone', 'story in motion', 'The turn at 0:14', true),
+      H('The chatbot made up a policy. Guess who had to honor it.', 'Guess who paid', 'Fox staring at a paper receipt', 'stakes', '0:07'),
+      H('Who is accountable when the bot makes it up?', 'Who pays?', 'Fox and caller staring at each other', 'question', '0:12')
+    ],
+    chosen: 0,
+    beats: ['Caller: "But the chatbot said I could"', 'Fox checks: no such policy', G('The turn: who is accountable when the bot makes it up', 'the turn, in your words'), 'Close: a human in the loop needs a playbook, not just a policy'],
+    gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' },
+    tips: { Dawn: 'The caller is not the villain. Keep Fox kind.', Alex: 'Name the playbook in one line at the close.', Paloma: 'The felt phone ringing is your first frame.' },
+    look: L('Tabletop, overhead', 'Plum sweater (hands only)', 'Craft table', 'Felt fox in headset, peg-person caller, paper laptop', 'Narrator VO recorded after. Stop-motion feel: 8 fps on the fox.'),
+    drafted: ['voice'], slate: 'C1 FOX TICKET',
+    prep: ['Felt fox, headset and paper phone on the craft table', 'Overhead rig and second light']
+  }),
+  mk({
+    id: 'do-it-scared', title: 'Grieve, then get started. Do it scared.', status: 'proposed', week: null,
+    summary: "Being let go in 2023, the year of identity crisis, and what I'd tell that version of me. Hot take for anyone watching AI reshape their job.",
+    pillar: 'Grounded', type: 'personality', style: 'hot take', onCamera: 'talking head', voice: 'Mariena', feeling: 'motivated', harmHelp: 'neutral', cta: 'follow', take: 1, story: 'letgo', origin: 'experience',
+    brief: 'Story bank: being let go',
+    ready: ['yellow', 'Needs the scene: the day, the room.'],
+    hooks: [
+      H("In 2023 I got let go. Here's what I'd tell that version of me.", 'Let go in 2023', 'Me on the porch steps, coffee in hand', 'story in motion', '0:06', true),
+      H('Grieve, then get started.', 'Grieve. Then start.', 'Tight close-up, no smile', 'bold claim', '0:03'),
+      H('Nobody tells you the scary part lasts a while.', 'The scary part lasts', 'Me walking toward camera on a trail', 'stakes', '0:08')
+    ],
+    beats: [G('Cold open: 2023, the day I got let go', 'the scene: the day, the room'), 'The year after: twelve months of not knowing who I was without the job', 'What I would tell that version of me: grieve, then get started', 'Do it scared. Close walking forward on the trail'],
+    gut: { Dawn: 'yes', Alex: 'not sure', Paloma: 'yes' },
+    drafted: ['pillar', 'type', 'feeling', 'style', 'cta', 'take']
+  }),
+  mk({
+    id: 'two-pm', title: 'Done with work by 2pm. Now what?', status: 'proposed', week: null,
+    summary: "A letter from someone whose AI setup finishes their day's work by 2pm. They're bored and nervous. My advice: decide with your manager what the saved time is for, before someone else does.",
+    pillar: 'Messy', type: 'authority', style: 'workplace advice', onCamera: 'talking head', voice: 'Mariena', feeling: 'optimistic', harmHelp: 'help', cta: 'comment question', take: 16,
+    series: 'Workplace advice', ep: 4, origin: 'read',
+    brief: 'workplace-advice/stories/2026-11-15-done-by-two-pm.md',
+    sourceLink: { label: 'Reddit post in r/jobs', url: 'https://www.reddit.com/r/jobs/' },
+    ready: ['yellow', 'Needs your take in your words.'],
+    hooks: [
+      H("My AI finishes my job by 2pm and I don't know what to do with the rest of the day.", 'Done by 2pm', 'Wall clock at 2:00, me with feet up', 'story in motion', 'Advice at 0:09', true),
+      H('Finishing early is the dangerous part.', 'The dangerous part', 'Me tapping a watch', 'bold claim', '0:05'),
+      H('What would you do with three free hours a day?', '3 free hours', 'Three kraft tags labeled 3, 4, 5', 'question', '0:07')
+    ],
+    beats: ['Read the letter: done by 2pm, bored and nervous', 'Why finishing early is the risky part: someone else decides what the time is for', G('My take: business impact and people go in balance', 'your take, in your words'), 'If it were me: book 20 minutes with your manager this week and bring a plan for the hours', 'Ask: what would you do with three free hours?'],
+    gut: { Dawn: 'yes', Alex: 'yes', Paloma: 'not sure' },
+    drafted: ['pillar', 'type', 'feeling', 'take', 'cta', 'harmHelp']
+  }),
+  mk({
+    id: 'finance-app', title: 'I built the Mint replacement I never found', status: 'proposed', week: null,
+    summary: "Demo my family's finance app: an evergreen app built to exactly what I wanted. Hook off the ghost-subscriptions wave; my angle is building for yourself, not for a demo.",
+    pillar: 'Building', type: 'personality', style: 'show and tell', onCamera: 'show and tell', voice: 'Mariena', feeling: 'empowered', harmHelp: 'help', cta: 'GitHub link', take: 13, origin: 'experience',
+    brief: 'own-ideas/2026-11-12-family-finance-app.md',
+    ready: ['green', 'Your build, your words. Agents drafted the hooks.'],
+    hooks: [
+      H('I looked for a Mint replacement for a year. Then I built one.', 'So I built it', 'Me holding my phone up with the app open', 'story in motion', 'Demo at 0:06', true),
+      H('Everyone is canceling ghost subscriptions with AI. I built the whole app.', 'I built the whole app', 'Screen: a list of subscriptions, one by one crossed out', 'reframe', '0:08'),
+      H('The best app I use, nobody else will ever download.', 'Built for one family', 'Me at the kitchen table, laptop open', 'bold claim', '0:05')
+    ],
+    beats: ['A year of looking for a Mint replacement', 'The app on my phone: the three screens we actually use', 'Why build for one family, not for a demo', 'Where the code lives, on GitHub'],
+    gut: { Dawn: 'not sure', Alex: 'yes', Paloma: 'yes' },
+    drafted: ['feeling', 'cta']
+  }),
+  mk({
+    id: 'data-stories', title: 'Why "Turning Data Into Stories" is my most popular course', status: 'proposed', week: null,
+    summary: 'A hypothesis: people want skills that let them answer their own questions with data they already have.',
+    pillar: 'Value', type: 'authority', style: 'hot take', onCamera: 'talking head', voice: 'Mariena', feeling: 'curious', harmHelp: 'neutral', cta: 'Mellonmail', origin: 'agent',
+    brief: 'Your #tiktok post, Nov 16',
+    ready: ['red', 'Mostly drafted. Needs why you think it is popular, in your words, and one learner story.'],
+    hooks: [
+      H('My most popular course has nothing to do with AI.', 'Not an AI course', 'Me holding a hand-drawn bar chart', 'bold claim', '0:04', true),
+      H('Why do people keep signing up for this one course?', 'Why this course?', 'Course sign-up page on screen', 'question', '0:06'),
+      H('Everyone wants to answer their own questions.', 'Answer your own questions', 'Sticky notes with questions on a wall', 'reframe', '0:07')
+    ],
+    beats: ['Open: my most popular course has nothing to do with AI', G('Why I think people sign up', 'why you think it is popular, in your words'), G('One learner who answered their own question with data they already had', 'one learner story'), 'Close: the skill under all the AI skills'],
+    drafted: ['pillar', 'type', 'feeling', 'style', 'onCamera', 'harmHelp', 'cta', 'summary']
+  }),
+  mk({
+    id: 'data-dos', title: "Do and don't when using AI to analyze data", status: 'backlog', week: null,
+    summary: 'A quick listicle: three do and three don\'t for using AI on your own data.',
+    pillar: 'Value', type: 'authority', style: 'listicle', onCamera: 'talking head', voice: 'Mariena', feeling: 'curious', harmHelp: 'help', cta: 'resource landing page', origin: 'agent',
+    brief: 'Your #tiktok post, Nov 16', ready: ['red', 'Mostly drafted. Needs your real do and don\'t list.'],
+    drafted: ['pillar', 'type', 'feeling', 'style', 'cta']
+  }),
+  mk({
+    id: 'tahoe', title: 'Chatbot Court: A Tahoe for one dollar', status: 'rejected', week: null,
+    summary: 'Skit judging the dealership chatbot that agreed to sell an SUV for a dollar, then what I would have done differently.',
+    pillar: 'Messy', type: 'authority', style: 'skit', onCamera: 'skit', voice: 'Mariena', feeling: 'cheeky', harmHelp: 'harm', cta: 'none', origin: 'read',
+    sourceLink: { label: 'News coverage of the dealership chatbot', url: 'https://www.google.com/search?q=chevy+tahoe+chatbot+one+dollar' },
+    ready: ['yellow', 'Needs your take in your words.'],
+    rejectNote: "Chatbot Court dunks on a company. I'd rather tell people's stories. (example note)",
+    drafted: ['feeling', 'type']
+  })
+];
+/* Past weeks: light records */
+const P = (id, title, pillar, type, week, postDate) => ({ id, title, pillar, type, week, postDate, status: 'scheduled', past: true });
+IDEAS.push(
+  P('p1', 'My uncle the logger, and the mills that closed', 'Perspective', 'storyline', '2026-11-09', '2026-11-16'),
+  P('p2', 'What I set up before asking AI anything', 'Value', 'authority', '2026-11-09', '2026-11-17'),
+  P('p3', 'Old Tech Panics: the calculator will ruin math', 'Perspective', 'authority', '2026-11-09', '2026-11-18'),
+  P('p4', "Building my family's finance app, day 1", 'Building', 'personality', '2026-11-09', '2026-11-19'),
+  P('p5', 'The survey said nobody has time to experiment', 'Messy', 'authority', '2026-11-09', '2026-11-20'),
+  P('p6', 'We are more than what we do', 'Grounded', 'personality', '2026-11-09', '2026-11-21'),
+  P('p7', 'Demo day: the moment a skeptic asked for the link', 'Value', 'storyline', '2026-11-09', '2026-11-22'),
+  P('q1', 'Do it with me: where it started', 'Value', 'storyline', '2026-11-16', '2026-11-23'),
+  P('q2', 'Six months to real results with AI champions', 'Value', 'authority', '2026-11-16', '2026-11-24'),
+  P('q3', 'Copilot rollout, week one: what logins don\'t tell you', 'Building', 'authority', '2026-11-16', '2026-11-25'),
+  P('q4', 'Twenty appraisals, one chatbot', 'Messy', 'authority', '2026-11-16', '2026-11-26'),
+  P('q5', 'Who gets left behind when the course is optional', 'Perspective', 'personality', '2026-11-16', '2026-11-27'),
+  P('q6', 'AI doesn\'t need to be your everything', 'Grounded', 'personality', '2026-11-16', '2026-11-28')
+);
+/* Published moves on its own when the post date passes */
+IDEAS.forEach(i => { if (i.status === 'scheduled' && i.postDate && i.postDate <= TODAY) i.status = 'published'; });
+
+/* ================= Mix targets (brief §6.3) ================= */
+const TARGETS = {
+  'type.authority': [3, 3], 'type.storyline': [2, 2], 'type.personality': [1, 1], 'type.follow the signal': [1, 1],
+  'pillar.Value': [4, 6], 'pillar.Messy': [3, 5], 'pillar.Building': [2, 4], 'pillar.Perspective': [1, 3], 'pillar.Grounded': [1, 2],
+  'style.each': [0, 2], 'style.others': [0, 2], 'style.series': [1, 7],
+  'camera.talking': [4, 5], 'hh.gap': [0, 1], 'cta.with': [0, 2], 'feeling.each': [0, 3]
+};
+const TARGET_LABEL = {
+  'type.authority': 'Authority', 'type.storyline': 'Storyline', 'type.personality': 'Personality', 'type.follow the signal': 'Follow the signal',
+  'pillar.Value': 'Value', 'pillar.Messy': 'Messy', 'pillar.Building': 'Building', 'pillar.Perspective': 'Perspective', 'pillar.Grounded': 'Grounded',
+  'style.each': 'Any one style', 'style.others': "Other people's stories", 'style.series': 'Running series episodes',
+  'camera.talking': 'Talking head', 'hh.gap': 'Gap between harm and help', 'cta.with': 'Videos with a call to action', 'feeling.each': 'Any one feeling'
+};
+const LOCK = { 'style.each': 'min', 'style.others': 'min', 'style.series': 'max', 'hh.gap': 'min', 'cta.with': 'min', 'feeling.each': 'min' };
+
+/* ================= Config ================= */
+const CONFIG = {
+  mission: 'Upskilling and changing how we work, at scale, for people in the workforce and contributing to the economy.',
+  throughline: 'The people doing the work should shape how AI changes it, so more people come out the other side better off.',
+  person: 'Alex, an under-resourced manager who tinkers. Gen Z or millennial, motivated, wants to do right by their team, believes AI can make the team better. More about results than decorum, always down for a good story and an impromptu game.',
+  vibe: '"We\'re all figuring this out." A little whimsical, messy, thinking out loud. Silly and weird, smart, professional and quirky.',
+  advice: '"If it were me, here\'s what I would do." No soapboxing, no know-it-all guru.',
+  cadenceWeeks: 6, lastCheckin: '2026-11-18'
+};
+const VERSIONS = [
+  { n: 4, date: '2026-11-19', label: 'Tales From Tech Support added; "my own ideas" retired; Chatbot Court series retired', changes: [
+    { field: 'Content styles', from: '(ten styles)', to: 'Added "Tales From Tech Support". Retired "my own ideas" (a source, not a style).' }] },
+  { n: 3, date: '2026-11-18', label: 'Feelings set to seven; type replaces buckets; mix ranges set', changes: [
+    { field: 'Feelings', from: 'understood, called out, laughed, validated, hopeful, proud, curious', to: 'empowered, seen, inspired, motivated, cheeky, curious, optimistic' },
+    { field: 'Mix ranges', from: '(none)', to: 'Starting targets from the brief, §6.3' }] },
+  { n: 2, date: '2026-11-18', label: "The person: Alex's inner world added", changes: [
+    { field: 'The person', from: 'Alex, an under-resourced manager who tinkers.', to: "Added the core problem, what's hurting, what he's tried, what he's afraid of and what he wants." }] },
+  { n: 1, date: '2026-11-16', label: 'Imported from foundation.md (workbook answers)', changes: [] }
+];
+
+/* ================= State ================= */
+const S = {
+  ideas: IDEAS, targets: TARGETS, includeProposed: false, week: CUR_WEEK, ideasTab: 'proposed',
+  dimOpen: {}, locked: {}, lockConfirm: false, backTo: 'plan',
+  filmDay: '2026-11-25', filmed: {}, focus: null, scriptOpen: { 'tell-boss': true }, prepDone: { 'gen:0': true, 'context:0': true },
+  openVersion: null, editing: null, adding: null, retiredOpen: {}, ros: null, draft: null, flash: null
+};
+try { const f = localStorage.getItem('mh-flag'); document.documentElement.dataset.flag = (f === 'edge' ? 'edge' : 'dot'); } catch (_) { document.documentElement.dataset.flag = 'dot'; }
+
+/* ================= Helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const idea = id => S.ideas.find(i => i.id === id);
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const pillarChip = p => p ? `<span class="chip"><span class="dot" style="background:${pillarColor(p)}"></span>${esc(p)}</span>` : '';
+const band = pos => `<div class="band" aria-hidden="true"><img src="assets/trail-band.jpg" alt="" style="object-position:${pos}"></div>`;
+const WEEK_STATUSES = ['on deck', 'in progress', 'scheduled', 'published'];
+const isRetired = (k, v) => (RETIRED[k] || []).includes(v);
+let toastT;
+function toast(msg, undo) {
+  let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  S.undo = undo || null;
+  t.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button data-undo>Undo</button>' : ''}`;
+  t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; S.undo = null; }, undo ? 6000 : 2800);
+}
+const PEG = 'assets/peg-mariena.jpg';
+const bt = b => typeof b === 'string' ? { t: b, gap: null } : b;
+function gapsOf(i) { return (i.beats || []).map((b, n) => ({ n: n + 1, gap: bt(b).gap })).filter(g => g.gap); }
+function beatsHtml(i, style) {
+  return `<ol class="beats"${style ? ` style="${style}"` : ''}>${i.beats.map(b => { b = bt(b); return `<li><span>${esc(b.t)}${b.gap ? ` <span class="needs">needs you: ${esc(b.gap)}</span>` : ''}</span></li>`; }).join('')}</ol>`;
+}
+function takeLabel(n) { return TAKES[n] ? TAKES[n][0] : ''; }
+function addTake(text) {
+  const n = Math.max(...Object.keys(TAKES).map(Number)) + 1;
+  const short = text.split(/\s+/).slice(0, 6).join(' ').replace(/[.,;:!?]+$/, '');
+  TAKES[n] = [short.length < text.length ? short.toLowerCase() + '...' : short.toLowerCase(), text];
+  return n;
+}
+function readyLevel(i) { return (i.ready || ['red', ''])[0]; }
+function readyDot(i) { const [lv, why] = i.ready || ['red', '']; return `<span class="rdot ${lv}"><i></i>${cap(lv)}: ${esc(why.split('.')[0])}</span>`; }
+function srcText(i) {
+  if (i.sourceLink) return `<span class="srcline">${I.link}<span>${esc(i.sourceLink.label)}</span></span>`;
+  const o = { experience: 'From your own experience', research: 'From research', client: 'Client story', agent: 'Drafted by agents from your notes', read: 'Something you read' }[i.origin];
+  return `<span class="srcline"><span>${esc(o || '')}</span></span>`;
+}
+
+/* ================= Mix ================= */
+function counted(w = S.week) {
+  return S.ideas.filter(i => (i.week === w && ['on deck', 'in progress', 'scheduled'].includes(i.status)) || (S.includeProposed && i.status === 'proposed'));
+}
+function computeMix(w = S.week) {
+  const c = counted(w); const n = f => c.filter(f).length;
+  const prev = S.ideas.filter(i => i.week === addDays(w, -7) && WEEK_STATUSES.includes(i.status));
+  const dims = [];
+  dims.push({ id: 'type', title: 'Type', win: 7, rows: OPTS.type.map(t => ({ key: 'type.' + t, label: cap(t), match: i => i.type === t, count: n(i => i.type === t), scale: 5 })) });
+  dims.push({ id: 'pillar', title: 'Pillar', win: 14, note: `This week plus ${prev.length} videos from the week of ${md(addDays(w, -7))}`, rows: PILLARS.map(p => ({ key: 'pillar.' + p.name, label: p.name, color: p.color, match: i => i.pillar === p.name, count: n(i => i.pillar === p.name) + prev.filter(i => i.pillar === p.name).length, scale: 8 })) });
+  const styles = [...new Set(c.map(i => i.style).filter(Boolean))];
+  const others = i => ['AI-ITA', 'workplace advice'].includes(i.style);
+  dims.push({ id: 'style', title: 'Content style', win: 7, rows: [
+    ...styles.map(s => ({ key: 'style.each', label: cap(s), match: i => i.style === s, count: n(i => i.style === s), scale: 5 })),
+    { key: 'style.others', label: "Other people's stories", sub: 'AI-ITA and workplace advice', match: others, count: n(others), scale: 5 },
+    { key: 'style.series', label: 'Running series episodes', match: i => !!i.series, count: n(i => !!i.series), scale: 7 }] });
+  const nonTalk = [...new Set(c.filter(i => i.onCamera && i.onCamera !== 'talking head').map(i => i.onCamera))];
+  dims.push({ id: 'camera', title: 'On camera', win: 7, note: nonTalk.length ? 'Also this week: ' + nonTalk.join(', ') : '', rows: [{ key: 'camera.talking', label: 'Talking head', match: i => i.onCamera === 'talking head', count: n(i => i.onCamera === 'talking head'), scale: 7 }] });
+  const harm = n(i => i.harmHelp === 'harm'), help = n(i => i.harmHelp === 'help'), neu = n(i => i.harmHelp === 'neutral');
+  const big = harm >= help ? 'harm' : 'help';
+  dims.push({ id: 'hh', title: 'Harm or help', win: 7, note: `Harm ${harm} · Help ${help} · Neutral ${neu} (doesn't count)`, rows: [{ key: 'hh.gap', label: 'Gap between harm and help', match: i => i.harmHelp === big, matchLabel: big, count: Math.abs(harm - help), scale: 5 }] });
+  const withCta = i => i.cta && i.cta !== 'none';
+  dims.push({ id: 'cta', title: 'Call to action', win: 7, note: c.filter(withCta).map(i => i.cta).join(', '), rows: [{ key: 'cta.with', label: 'Videos with one', match: withCta, count: n(withCta), scale: 7 }] });
+  const used = OPTS.feeling.concat(RETIRED.feeling).filter(f => n(i => i.feeling === f) > 0);
+  dims.push({ id: 'feeling', title: 'Feeling', win: 7, note: 'Not used: ' + OPTS.feeling.filter(f => !used.includes(f)).join(', '), rows: used.map(f => ({ key: 'feeling.each', label: cap(f), match: i => i.feeling === f, count: n(i => i.feeling === f), scale: 7 })) });
+  dims.forEach(d => d.rows.forEach(r => { const [lo, hi] = S.targets[r.key]; r.lo = lo; r.hi = hi; r.bad = r.count < lo || r.count > hi; }));
+  dims.forEach(d => { d.off = d.rows.some(r => r.bad); d.line = dimLine(d, { harm, help, neu, n: c.length }); });
+  return dims;
+}
+function dimLine(d, x) {
+  if (d.id === 'camera') return `Talking head ${d.rows[0].count} of ${x.n}${d.note ? ' · ' + d.note.replace('Also this week: ', 'plus ') : ''}`;
+  if (d.id === 'hh') return `Harm ${x.harm} · Help ${x.help} · Neutral ${x.neu}`;
+  if (d.id === 'cta') return `${d.rows[0].count} with one${d.note ? ': ' + d.note : ''}`;
+  if (d.id === 'style') return d.rows.filter(r => r.key === 'style.each').map(r => `${r.label} ${r.count}`).join(' · ') + ` · series ${d.rows[d.rows.length - 1].count}`;
+  return d.rows.map(r => `${r.label} ${r.count}`).join(' · ');
+}
+function rowFlagText(r) { return r.count < r.lo ? `${r.lo - r.count} short` : r.count > r.hi ? `${r.count - r.hi} over` : ''; }
+function targetText(key) {
+  const [lo, hi] = S.targets[key], lock = LOCK[key];
+  if (lock === 'min') return `at most ${hi}`; if (lock === 'max') return `at least ${lo}`;
+  return lo === hi ? `target ${lo}` : `target ${lo} to ${hi}`;
+}
+function dimFlag(d) { const r = d.rows.find(r => r.bad); return r ? `${r.label} ${rowFlagText(r)}` : ''; }
+function fixesFor(d) {
+  return d.rows.filter(r => r.bad).map(r => {
+    const short = r.count < r.lo, gap = short ? r.lo - r.count : r.count - r.hi;
+    const name = r.key === 'hh.gap' ? `${cap(r.matchLabel)} is ahead of ${r.matchLabel === 'harm' ? 'help' : 'harm'} by ${r.count}` : `${r.label}: ${r.count}, ${targetText(r.key)}`;
+    if (short) {
+      const cands = S.ideas.filter(i => ['proposed', 'backlog'].includes(i.status) && r.match(i)).slice(0, 3);
+      return { text: `${name}. Add ${gap}.`, cands, act: 'on', empty: r.key === 'type.follow the signal' ? 'Nothing proposed has this type yet. Bev suggests one from your top videos once results come in.' : 'Nothing in proposed or backlog fits. Add an idea, or ask Orca for one.' };
+    }
+    const cands = counted().filter(i => i.status === 'on deck' && i.week === S.week && r.match(i));
+    return { text: `${name}. Take ${gap} off.`, cands, act: 'off', empty: '' };
+  });
+}
+
+/* ================= Router ================= */
+const NAV = [['ideas', 'Ideas', I.ideas], ['plan', 'Plan week', I.plan], ['film', 'Film', I.film], ['config', 'Config', I.config]];
+function route() {
+  const h = (location.hash || '#plan').slice(1);
+  if (h.startsWith('idea-')) return { screen: 'idea', id: h.slice(5) };
+  return { screen: NAV.some(n => n[0] === h) ? h : 'plan' };
+}
+function go(h) { if (location.hash === '#' + h) render(); else location.hash = h; }
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+function renderNav(active) {
+  const a = active === 'idea' ? S.backTo : active;
+  $('#tabbar').innerHTML = NAV.map(([k, l, ic]) => `<button class="tab" data-go="${k}" ${a === k ? 'aria-current="page"' : ''}><span class="tab-ico">${ic}</span>${l}</button>`).join('');
+  $('#railnav').innerHTML = NAV.map(([k, l, ic]) => `<button data-go="${k}" ${a === k ? 'aria-current="page"' : ''}>${ic}${l}</button>`).join('');
+}
+function mockbar() {
+  const f = document.documentElement.dataset.flag;
+  return `<div class="mockbar"><span>Round 2 mockup · example data</span><span style="display:inline-flex;align-items:center;gap:8px">Flag style
+    <span class="seg" role="group" aria-label="Off-target flag style"><button data-flag="dot" aria-pressed="${f === 'dot'}">Coral dot</button><button data-flag="edge" aria-pressed="${f === 'edge'}">Coral edge</button></span></span></div>`;
+}
+function render() {
+  const r = route(); renderNav(r.screen);
+  const m = $('#main');
+  let html = '';
+  if (r.screen === 'ideas') html = vIdeas();
+  else if (r.screen === 'idea') html = vIdea(r.id);
+  else if (r.screen === 'plan') html = vPlan();
+  else if (r.screen === 'film') html = vFilm();
+  else if (r.screen === 'config') html = vConfig();
+  m.innerHTML = html;
+  if (r.screen === 'film') wireSortables();
+  if (document.querySelector('.mrow')) paintMeters();
+}
+
+/* ================= Screen: Ideas ================= */
+function hookLine(i) {
+  if (!i.hooks || !i.hooks.length) return '<p class="hookline">Hooks arrive on the next agent pass</p>';
+  if (i.chosen === null || i.chosen === undefined) return `<p class="hookline pick">${i.hooks.length} hooks to pick</p>`;
+  const h = i.chosen === 'own' ? { spoken: i.ownHook } : i.hooks[i.chosen];
+  return `<p class="hookline">"${esc(h.spoken)}"</p>`;
+}
+function ideaCard(i) {
+  const acts = [];
+  if (i.status === 'proposed') acts.push(`<button class="btn sm go" data-ondeck="${i.id}">Put on deck</button><button class="btn sm" data-move="${i.id}" data-to="backlog">Backlog</button><button class="btn sm" data-reject="${i.id}">Reject</button>`);
+  if (i.status === 'backlog') acts.push(`<button class="btn sm go" data-ondeck="${i.id}">Put on deck</button><button class="btn sm" data-move="${i.id}" data-to="proposed">Move to proposed</button>`);
+  if (i.status === 'rejected') acts.push(`<button class="btn sm" data-move="${i.id}" data-to="proposed">Bring back</button>`);
+  return `<article class="card idea-card">
+    ${i.rehook ? '<span class="rehook-badge">Re-hook needed</span>' : ''}
+    <h3>${esc(i.title)}</h3>
+    <div class="idea-meta">${pillarChip(i.pillar)}${i.feeling ? `<span class="chip">${esc(i.feeling)}</span>` : ''}${i.style ? `<span class="chip">${esc(i.style)}</span>` : ''}</div>
+    ${readyDot(i)}
+    ${srcText(i)}
+    ${i.status === 'rejected' ? `<p class="why"><b>Why not</b>${esc(i.rejectNote || 'No note')}</p>` : hookLine(i)}
+    <div class="card-actions">${acts.join('')}<button class="btn sm open" data-open="${i.id}">Open ${I.chev}</button></div>
+  </article>`;
+}
+function vIdeas() {
+  const tabs = [['proposed', 'Proposed'], ['backlog', 'Backlog'], ['rejected', 'Rejected']];
+  const list = S.ideas.filter(i => i.status === S.ideasTab);
+  const sortOrder = { red: 0, yellow: 1, green: 2 };
+  const nNew = S.ideas.filter(i => i.status === 'proposed').length;
+  return `${mockbar()}${band('18% 62%')}
+  <header class="screen-head">
+    <div><p class="eyebrow">Idea bank</p><h1>Ideas</h1></div>
+    <button class="btn primary" data-add>${I.plus} Add an idea</button>
+  </header>
+  <div class="card agent-note"><img class="felt-c" src="assets/bev.jpg" alt="Bev, the felt beaver who stands in for planning">
+    <p><strong>${nNew} ideas waiting on you</strong><span class="muted">From Sunday's pitch and your own adds. Put the good ones on deck for a week; a rejection note helps the next pitch.</span></p></div>
+  <div class="tabs" role="tablist" style="margin-top:18px">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${S.ideasTab === k}" data-itab="${k}">${l} <span class="count-pill num">${S.ideas.filter(i => i.status === k).length}</span></button>`).join('')}</div>
+  <div class="section" style="margin-top:14px">
+    ${list.length ? `<div class="idea-grid">${list.sort((a, b) => S.ideasTab === 'proposed' ? (b.added || 0) - (a.added || 0) : 0).map(ideaCard).join('')}</div>`
+      : `<div class="card empty"><img class="felt-c" src="assets/bev.jpg" alt="" style="width:72px;height:72px"><p><strong>Nothing here</strong></p><p class="muted small">${S.ideasTab === 'rejected' ? 'Ideas you reject land here with your note.' : S.ideasTab === 'backlog' ? 'Ideas you want to keep for later land here.' : 'All caught up. Orca pitches new ones Sunday night.'}</p></div>`}
+  </div>
+  <p class="example-note">Example ideas from your ideas list, takes bank and story bank. Readiness: green, enough from you to make it compelling; yellow, enough for a reasonable storyboard; red, mostly drafted.</p>`;
+}
+
+/* Add-an-idea form */
+function addForm() {
+  const d = S.draft;
+  const src = [['experience', 'Something that happened to me'], ['read', 'A story I read online'], ['research', 'Research']];
+  const needsLink = d.src !== 'experience';
+  const textLabel = d.src === 'experience' ? 'What happened, in your words' : d.src === 'read' ? 'What is the story, and why did it catch you?' : 'What did you find?';
+  return `<h3>Add an idea</h3><p class="hint">Four things now. Agents draft the rest (pillar, type, feeling, hooks, storyboard), marked drafted until you confirm.</p>
+  <form class="form" data-addform>
+    <div><span class="lbl">Where did it come from?</span><div class="optlist">${src.map(([k, l]) => `<button type="button" class="opt" aria-pressed="${d.src === k}" data-addsrc="${k}">${l}</button>`).join('')}</div></div>
+    <div><label for="add-title">Working title</label><input type="text" id="add-title" value="${esc(d.title)}" placeholder="${d.src === 'experience' ? 'The day the team stopped using the agents' : 'Boss wants AI in every performance review'}"></div>
+    ${needsLink ? `<div><label for="add-link">Link to the ${d.src === 'read' ? 'post or article' : 'research'}</label><input type="url" id="add-link" value="${esc(d.link)}" placeholder="https://"></div>` : ''}
+    <div><label for="add-text">${textLabel}</label><textarea id="add-text" placeholder="Talk it out. Dictation works here.">${esc(d.text)}</textarea></div>
+    <div><label for="add-take">Your take <span class="opt-l">(optional: pick one from your takes bank, or add a new one)</span></label><select id="add-take" data-takesel><option value="">I'll add it later</option>${Object.entries(TAKES).map(([n, t]) => `<option value="${n}" ${String(d.take) === n ? 'selected' : ''}>#${n} ${esc(t[0])}</option>`).join('')}<option value="new" ${d.take === 'new' ? 'selected' : ''}>Add a new take...</option></select>
+      ${d.take === 'new' ? `<input type="text" id="add-newtake" value="${esc(d.newTake || '')}" placeholder="Say it the way you'd say it on camera" style="margin-top:8px"><p class="muted small" style="margin-top:4px">Saved to your takes bank as #${Math.max(...Object.keys(TAKES).map(Number)) + 1}.</p>` : ''}</div>
+    ${d.src === 'experience' ? `<button type="button" class="switch" role="switch" aria-checked="${d.toBank}" data-tobank><span class="sw"></span>Also save to my story bank</button>` : ''}
+    <div><span class="lbl">Where it goes</span><span class="seg" role="group">${[['proposed', 'Proposed'], ['on deck', 'On deck, week of Nov 23'], ['backlog', 'Backlog']].map(([k, l]) => `<button type="button" aria-pressed="${d.dest === k}" data-adddest="${k}">${l}</button>`).join('')}</span></div>
+  </form>
+  <div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-addsave>Save idea</button></div>`;
+}
+function captureDraft() {
+  if (!S.draft) return; const v = id => { const el = $(id); return el ? el.value : null; };
+  const t = v('#add-title'), l = v('#add-link'), x = v('#add-text'), k = v('#add-take'), nt = v('#add-newtake');
+  if (t !== null) S.draft.title = t; if (l !== null) S.draft.link = l; if (x !== null) S.draft.text = x; if (k !== null) S.draft.take = k; if (nt !== null) S.draft.newTake = nt;
+}
+function saveDraft() {
+  captureDraft(); const d = S.draft;
+  if (!d.title.trim()) { toast('Add a working title to save it.'); $('#add-title').focus(); return; }
+  let newTakeN = null;
+  if (d.take === 'new') { const nt = (d.newTake || '').trim(); if (nt) newTakeN = addTake(nt); }
+  const hasText = d.text.trim().length > 30, take = newTakeN || (d.take && d.take !== 'new' ? +d.take : null);
+  let ready;
+  if (hasText && take) ready = ['green', 'Your take and your words. Agents draft the rest.'];
+  else if (hasText) ready = ['yellow', 'Needs your take in your words.'];
+  else if (take) ready = ['yellow', d.src === 'experience' ? 'Needs the scene: the day, the room.' : 'Needs what caught you, in your words.'];
+  else ready = ['red', 'Needs what happened, in your words, and your take.'];
+  let link = null;
+  if (d.link && d.src !== 'experience') { let label = d.link; try { label = new URL(d.link).hostname.replace(/^www\./, ''); } catch (_) {} link = { label, url: d.link }; }
+  const id = 'new-' + Date.now();
+  S.ideas.push(mk({ id, title: d.title.trim(), status: d.dest, week: d.dest === 'on deck' ? CUR_WEEK : null, summary: d.text.trim(), origin: d.src, take, sourceLink: link,
+    pillar: '', type: '', style: '', onCamera: '', voice: 'Mariena', feeling: '', harmHelp: '', cta: '', ready, added: Date.now(),
+    notes: [{ who: 'You in the app, Nov 19', text: 'Added by hand.' + (d.toBank && d.src === 'experience' ? ' Saved to the story bank too.' : '') }] }));
+  S.draft = null; closeSheet(); S.ideasTab = d.dest === 'on deck' ? S.ideasTab : d.dest;
+  toast((newTakeN ? `Take #${newTakeN} saved to your bank. ` : '') + (d.dest === 'on deck' ? 'Saved and on deck for Nov 23. Orca drafts the rest.' : 'Saved. Orca drafts the rest on the next pass.'), () => { S.ideas = S.ideas.filter(i => i.id !== id); render(); });
+  if (route().screen !== 'ideas') go('ideas'); else render();
+}
+
+/* ================= Screen: Plan week ================= */
+function trail(w) {
+  const kind = weekKind(w); const items = S.ideas.filter(i => i.week === w && WEEK_STATUSES.includes(i.status));
+  let cur;
+  if (kind === 'past') cur = items.length && items.every(i => i.status === 'published') ? 5 : 4;
+  else if (kind === 'future') cur = 0;
+  else cur = S.locked[w] ? (items.some(i => S.filmed[i.id]) ? 2 : 2) : 0;
+  const stops = ['Pick ideas', 'Reviewed', w === CUR_WEEK ? 'Film Wed' : 'Film', 'Edit and schedule', 'Posted'];
+  const xs = [34, 102, 170, 238, 306];
+  const ys = [30, 18, 30, 18, 26];
+  const path = 'M34 30 C 60 6, 80 8, 102 18 S 146 40, 170 30 S 214 8, 238 18 S 284 34, 306 26';
+  const circ = xs.map((x, k) => {
+    const y = ys[k];
+    if (k === 4) return `<g transform="translate(${x - 12} ${y - 20})"><path d="M2 22 L22 22" stroke="var(--kraft-ink)" stroke-width="3" stroke-linecap="round"/><path d="M12 2 C 18 9, 20 13, 16 19 C 14 21, 10 21, 8 19 C 4 14, 8 9, 12 2Z" fill="${cur >= 4 ? 'var(--coral)' : 'var(--line)'}"/><path d="M12 10 C 14 13, 15 15, 13 18 C 12 19, 11 19, 10 18 C 9 16, 10 13, 12 10Z" fill="${cur >= 4 ? 'var(--peach)' : 'var(--paper)'}"/></g>`;
+    const done = k < cur, now = k === cur;
+    return `<circle cx="${x}" cy="${y}" r="${now ? 9 : 7}" fill="${done ? 'var(--forest)' : 'var(--paper)'}" stroke="${now ? 'var(--coral)' : done ? 'var(--forest)' : 'var(--line)'}" stroke-width="${now ? 4 : 2}"/>`;
+  }).join('');
+  return `<div class="card trail" aria-label="Week progress: ${stops[Math.min(cur, 4)]}">
+    <div class="trail-in"><svg viewBox="0 0 340 46" aria-hidden="true"><path d="${path}" fill="none" stroke="var(--kraft)" stroke-width="7" stroke-linecap="round"/><path d="${path}" fill="none" stroke="var(--kraft-ink)" stroke-width="1.4" stroke-dasharray="5 6" opacity=".55"/>${circ}</svg>
+    <div class="trail-labels">${stops.map((s, k) => `<span class="${k === cur ? 'cur' : k < cur ? 'done' : ''}">${s}</span>`).join('')}</div>
+  </div></div>`;
+}
+function deckCard(i) {
+  const lockedAt = S.locked[S.week];
+  const changed = lockedAt && i.addedAfterLock;
+  const post = i.status === 'scheduled' ? `Scheduled · posts ${wmd(i.postDate)}` : i.status === 'published' ? `Published ${wmd(i.postDate)}` : i.postDate ? `Planned post ${wmd(i.postDate)}` : 'No post day yet';
+  return `<article class="card deck-card">
+    <div class="body">
+      <button class="open-link" data-open="${i.id}"><h3>${esc(i.title)}</h3></button>
+      <div class="deck-line"><span class="st ${i.status.replace(' ', '-')}">${esc(i.status)}</span>${pillarChip(i.pillar)}<span>${esc(i.type || '')}</span><span>${post}</span>${changed ? '<span class="after-lock">added after review</span>' : ''}</div>
+      <div class="deck-line">${readyDot(i)}${i.rehook ? '<span class="rehook-badge">Re-hook needed</span>' : ''}${(!i.hooks.length || i.chosen === null || i.chosen === undefined) && !i.rehook ? '<span>No hook picked</span>' : ''}</div>
+    </div>
+    ${i.status === 'on deck' ? `<button class="xbtn" data-offdeck="${i.id}" aria-label="Take ${esc(i.title)} off this week">${I.x}</button>` : '<span></span>'}
+  </article>`;
+}
+function meterRow(r) {
+  const cells = r.scale + 1, pct = v => (v / cells * 100).toFixed(3) + '%';
+  const lock = LOCK[r.key];
+  const ticks = Array.from({ length: cells }, (_, v) => `<span class="tick" style="left:${pct(v + .5)}"></span>`).join('');
+  const nums = Array.from({ length: cells }, (_, v) => `<span style="left:${pct(v + .5)}">${v}</span>`).join('');
+  return `<div class="mrow ${r.bad ? 'bad edge-on' : ''}" data-key="${esc(r.key)}" data-label="${esc(r.label)}" data-count="${r.count}" data-scale="${r.scale}">
+    <div class="mrow-head">${r.color ? `<span class="dot" style="background:${r.color}"></span>` : ''}<span class="lab">${esc(r.label)}</span><span class="cnt num">${r.count}</span><span class="tgt">${targetText(r.key)}</span>
+      ${r.bad ? `<span class="flag">${rowFlagText(r)}</span>` : '<span class="ok">on target</span>'}</div>
+    ${r.sub ? `<span class="dim-note">${esc(r.sub)}</span>` : ''}
+    <div class="track"><span class="base"></span>${ticks}<span class="band2"></span>
+      ${lock !== 'min' ? `<button class="h" data-end="lo" role="slider" aria-label="${esc(r.label)} minimum" aria-valuemin="0" aria-valuemax="${r.scale}"></button>` : ''}
+      ${lock !== 'max' ? `<button class="h" data-end="hi" role="slider" aria-label="${esc(r.label)} maximum" aria-valuemin="0" aria-valuemax="${r.scale}"></button>` : ''}
+      <span class="marker num">${r.count}</span></div>
+    <div class="scale num" aria-hidden="true">${nums}</div>
+  </div>`;
+}
+function paintMeters() {
+  document.querySelectorAll('.mrow').forEach(row => {
+    const key = row.dataset.key, count = +row.dataset.count, scale = +row.dataset.scale, cells = scale + 1;
+    const [lo, hi] = S.targets[key]; const pct = v => (v / cells * 100).toFixed(3) + '%';
+    const b = row.querySelector('.band2');
+    b.style.left = pct(Math.min(lo, scale)); b.style.width = pct(Math.min(hi, scale) - Math.min(lo, scale) + 1);
+    row.querySelector('.marker').style.left = pct(Math.min(count, scale) + .5);
+    const hlo = row.querySelector('[data-end="lo"]'), hhi = row.querySelector('[data-end="hi"]');
+    if (hlo) { hlo.style.left = pct(lo); hlo.setAttribute('aria-valuenow', lo); }
+    if (hhi) { hhi.style.left = pct(Math.min(hi, scale) + 1); hhi.setAttribute('aria-valuenow', hi); }
+    const bad = count < lo || count > hi; row.classList.toggle('bad', bad); row.classList.toggle('edge-on', bad);
+    const head = row.querySelector('.mrow-head');
+    head.querySelector('.tgt').textContent = targetText(key);
+    const fl = head.querySelector('.flag, .ok');
+    fl.className = bad ? 'flag' : 'ok'; fl.textContent = bad ? rowFlagText({ count, lo, hi }) : 'on target';
+  });
+}
+function dimRow(d) {
+  const open = !!S.dimOpen[d.id];
+  const fx = d.off ? fixesFor(d) : [];
+  return `<article class="card dimrow ${d.off ? 'edge-on' : ''}" id="dim-${d.id}">
+    <button class="dim-toggle" data-dim="${d.id}" aria-expanded="${open}">
+      <span class="t">${d.title} <span class="win">${d.win} days</span>${d.off ? `<span class="flag">${esc(dimFlag(d))}</span>` : '<span class="ok">on target</span>'}</span>
+      <span class="line">${esc(d.line)}</span>
+      <span class="chev">${I.chev}</span>
+    </button>
+    ${open ? `<div class="dim-body">
+      ${fx.length ? `<div class="fixes"><span class="fx-h">What to change</span>${fx.map(f => `<div class="fix"><p>${esc(f.text)}</p>
+        ${f.cands.length ? f.cands.map(c => `<div class="cand"><span>${esc(c.title)} ${c.status === 'backlog' ? '<span class="muted">(backlog)</span>' : ''}</span>${f.act === 'on' ? `<button class="btn sm" data-ondeckw="${c.id}">Put on deck</button>` : `<button class="btn sm" data-offdeck="${c.id}">Take off</button>`}</div>`).join('') : `<p class="muted small" style="font-weight:400">${esc(f.empty)}</p>`}</div>`).join('')}</div>` : ''}
+      ${d.note ? `<p class="dim-note">${esc(d.note)}</p>` : ''}
+      ${d.rows.map(meterRow).join('')}
+      <p class="dim-note">Drag the ends of the green band to change a target. It saves right away.</p>
+    </div>` : ''}
+  </article>`;
+}
+function vPlan() {
+  const w = S.week, kind = weekKind(w), wi = WEEKS.indexOf(w);
+  const items = S.ideas.filter(i => i.week === w && WEEK_STATUSES.includes(i.status)).sort((a, b) => (a.postDate || '9').localeCompare(b.postDate || '9'));
+  const nav = `<div class="weeknav">
+    <button class="arrow" data-wk="-1" ${wi <= 0 ? 'disabled' : ''} aria-label="Previous week">${I.back}</button>
+    <div class="mid"><p class="eyebrow">${kind === 'past' ? 'Past week' : kind === 'current' ? 'This week' : 'Next week'}</p><h1>Week of ${md(w)}</h1><p class="sub">${weekSub(w)}</p></div>
+    <button class="arrow" data-wk="1" ${wi >= WEEKS.length - 1 ? 'disabled' : ''} aria-label="Next week">${I.fwd}</button></div>`;
+  let out = `${mockbar()}${band('48% 72%')}${nav}`;
+  if (S.locked[w]) out += `<div style="display:grid;justify-items:center;margin:2px 0 8px"><span class="tag sm lockstamp">reviewed ${md(S.locked[w])}</span></div>`;
+  out += trail(w);
+
+  if (kind === 'past') {
+    const pub = items.filter(i => i.status === 'published').length;
+    out += `<section class="section"><h2>What was made <span class="count-pill num">${items.length}</span><span class="muted small" style="font-weight:500">${pub} published, ${items.length - pub} scheduled</span></h2>
+      <div class="card">${items.map(i => `<div class="past-row"><span class="tt">${esc(i.title)}</span><span class="st ${i.status}">${i.status}</span>
+        <span class="meta">${pillarChip(i.pillar)}<span>${esc(i.type)}</span><span>${i.status === 'published' ? 'Posted' : 'Posts'} ${wmd(i.postDate)}</span>${i.status === 'published' ? '<span>· numbers after Sunday\'s signal check</span>' : ''}</span></div>`).join('')}</div></section>
+      <section class="section"><h2>Results <span class="chip">after first posts</span></h2>
+        <div class="card" style="padding:16px;display:grid;gap:12px">
+          <p class="small muted">Views, comments, saves, shares and watch time for each video, plus your one line on what landed. They arrive with the Sunday signal check. Once a few weeks are in, Results gets its own tab and answers: what kind of video gets real comments for you?</p>
+          <div class="ph-chart" aria-hidden="true"><svg viewBox="0 0 300 60" preserveAspectRatio="none"><path d="M0 48 C40 46 60 40 90 42 S150 24 180 28 S240 12 300 16" fill="none" stroke="var(--line)" stroke-width="2.5" stroke-dasharray="5 6"/></svg></div>
+        </div></section>
+      <p class="example-note">Statuses move to published on their own once the post date passes. Today is Thu Nov 19 in this mockup.</p>`;
+    return out;
+  }
+
+  out += `<section class="section"><h2>On deck <span class="count-pill num">${items.length}</span><span class="muted small" style="font-weight:500">aim for 7</span></h2>
+    ${items.length ? `<div class="deck">${items.map(deckCard).join('')}</div>` : `<div class="card empty"><figure class="polaroid" style="margin:0"><img src="assets/bev.jpg" alt="Bev the felt beaver with a notebook"><figcaption>Bev</figcaption></figure>
+      <p><strong>Nothing on deck for ${md(w)} yet</strong></p><p class="muted small">Put ideas on deck from Ideas, or from the mix suggestions once there are a few.</p></div>`}
+    <div><button class="btn" data-go="ideas">${I.plus} Add from ideas</button></div></section>`;
+
+  if (items.length) {
+    const dims = computeMix(w); const nOff = dims.filter(d => d.off).length; const cnt = counted(w).length;
+    out += `<section class="section" id="mix">
+      <div class="mixhead"><div><h2 class="h2">The mix</h2><p class="muted small">${nOff ? `${nOff} of 7 off target` : 'All 7 on target'} · ${cnt} ideas counted · tap a row to see what to change</p></div>
+        <button class="switch" role="switch" aria-checked="${S.includeProposed}" data-toggle-proposed><span class="sw"></span>Count proposed</button></div>
+      <div class="dimlist">${dims.filter(d => d.off).concat(dims.filter(d => !d.off)).map(dimRow).join('')}</div>
+    </section>`;
+    const locked = S.locked[w];
+    out += `<section class="section"><div class="card lockcard">
+      <figure class="polaroid r" style="margin:0"><img src="assets/jay.jpg" alt="Jay the felt Steller's jay, the orchestrator"><figcaption>Jay</figcaption></figure>
+      <div class="lc-body">${locked
+        ? `<h2>Reviewed ${md(locked)}</h2><p class="small">You looked the week over. You can still change it; anything added after this shows "added after review".</p>
+           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-go="film">Open film day</button><button class="btn ghost" data-unlock>Mark not reviewed</button></div>`
+        : S.lockConfirm
+          ? `<h2>Mark reviewed with ${nOff} off target?</h2><div class="confirm"><p class="small">${dims.filter(d => d.off).map(d => `${d.title}: ${dimFlag(d)}`).join(' · ')}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-lockyes>Mark reviewed anyway</button><button class="btn ghost" data-lockno>Keep planning</button></div></div>`
+          : `<h2>Done reviewing this week?</h2><p class="small muted">A check for you that you've looked the week over. Nothing else changes.</p><div><button class="btn primary lock-btn" data-lock>Done reviewing this week</button></div>`}
+      </div></div></section>`;
+  }
+  out += `<p class="example-note">The mix counts on deck, in progress and scheduled ideas for this week. Pillar looks back 14 days.</p>`;
+  return out;
+}
+
+/* ================= Screen: Idea ================= */
+const REHOOK = { feeling: 'feeling', take: 'take', summary: 'angle', style: 'content style', onCamera: 'on-camera setup' };
+const LABEL = { pillar: 'Pillar', type: 'Type', feeling: 'Feeling', style: 'Content style', onCamera: 'On camera', voice: 'Voice', harmHelp: 'Harm, help or neutral', cta: 'Call to action', take: 'Take', story: 'Story', series: 'Series', safety: 'Client safety', summary: 'The angle' };
+const LOOK = [['setup', 'Setup'], ['outfit', 'Outfit'], ['location', 'Location'], ['props', 'Props'], ['edit', 'Edit notes']];
+function bp(i, k, text) {
+  const v = i[k]; const empty = v === null || v === undefined || v === '';
+  const cls = empty ? 'empty' : i.drafted.includes(k) ? 'is-drafted' : '';
+  const ret = !empty && isRetired(k, v) ? ' (retired)' : '';
+  return `<button class="bp ${cls} ${S.flash === k ? 'flash' : ''}" data-edit="${k}" data-id="${i.id}" aria-label="${LABEL[k]}: ${esc(empty ? 'not set' : v)}${i.drafted.includes(k) ? ', drafted' : ''}">${empty ? 'add ' + LABEL[k].toLowerCase() : esc(text || v) + ret}</button>`;
+}
+function pitch(i) {
+  const takeTxt = i.take ? `take #${i.take}, "${TAKES[i.take] ? TAKES[i.take][0] : ''}"` : '';
+  const article = /^[aeiou]/i.test(i.pillar || 'x') ? 'An' : 'A';
+  return `${i.pillar ? article : 'A'} ${bp(i, 'pillar')} ${bp(i, 'type')} video in ${bp(i, 'style')} style, ${bp(i, 'onCamera')}, voiced by ${bp(i, 'voice')}.
+    It should leave Alex feeling ${bp(i, 'feeling')}, shows AI as ${bp(i, 'harmHelp')}, argues ${bp(i, 'take', takeTxt)} and ends with ${bp(i, 'cta', CTA_PHRASE[i.cta] || i.cta)}.
+    ${i.series ? `It's episode ${i.ep || '?'} of ${bp(i, 'series')}` : `It's ${bp(i, 'series', 'not part of a series')}`}${i.story ? `, built on the story ${bp(i, 'story', STORIES[i.story])}` : `, with ${bp(i, 'story', 'no story from the bank')}`}. Client safety: ${bp(i, 'safety')}.`;
+}
+function stageLine(i) {
+  const steps = i.status === 'in progress' || i.status === 'scheduled' || i.status === 'published'
+    ? [['filmed', !!S.filmed[i.id] || i.status !== 'in progress' || i.id === 'context'], ['rough cut', i.status !== 'in progress'], ['polished', i.status !== 'in progress']]
+    : [['storyboarded', i.beats.length > 0], ['take added', !!i.take && !i.drafted.includes('take')], ['hook picked', i.chosen !== null && i.chosen !== undefined && !i.rehook]];
+  return `<div class="stage-line" aria-label="Stage">${steps.map(([l, y]) => `<span class="${y ? 'y' : 'n'}">${l}</span>`).join('')}</div>`;
+}
+function vIdea(id) {
+  const i = idea(id); if (!i || i.past) return `${mockbar()}<p style="margin-top:20px">That idea isn't here.</p>`;
+  const flowIdx = ['proposed', 'on deck', 'in progress', 'scheduled', 'published'].indexOf(i.status);
+  const [lv, why] = i.ready || ['red', ''];
+  const lvText = { green: 'Green: enough from you to make it compelling', yellow: 'Yellow: enough for a reasonable storyboard', red: 'Red: mostly drafted, not much from you yet' }[lv];
+  const backLabel = { ideas: 'Ideas', plan: 'Plan week', film: 'Film' }[S.backTo] || 'Plan week';
+  const tips = i.tips || { Dawn: 'Say who it helps, early.', Alex: 'Give one step he can try Monday.', Paloma: 'Open on the moment, not the lesson.' };
+  const gaps = gapsOf(i);
+  const GUT = { yes: ['yes', 'Yes'], 'not sure': ['unsure', 'Not sure'], no: ['no', 'No'] };
+  return `${mockbar()}
+  <button class="back" data-go="${S.backTo}">${I.back} ${backLabel}</button>
+  <header style="padding:6px 0 4px">
+    <h1 class="idea-title">${esc(i.title)}</h1>
+    <div class="flow" role="group" aria-label="Status">${['proposed', 'on deck', 'in progress', 'scheduled', 'published'].map((s, k) => `<button data-status="${s}" data-id="${i.id}" class="${k < flowIdx ? 'past' : ''} ${s === 'published' ? 'auto' : ''}" ${i.status === s ? 'aria-current="step"' : ''} ${s === 'published' ? 'title="Moves on its own when the post date passes"' : ''}>${s}</button>`).join('')}</div>
+    <div class="status-side">
+      ${['backlog', 'rejected'].includes(i.status) ? `<span class="st">${i.status}</span>` : ''}
+      ${i.status !== 'backlog' ? `<button class="pillbtn" data-move="${i.id}" data-to="backlog">Backlog</button>` : ''}
+      ${i.status !== 'rejected' ? `<button class="pillbtn" data-reject="${i.id}">Reject</button>` : ''}
+      ${i.week ? `<span class="muted small">Week of ${md(i.week)}${i.postDate ? ` · ${i.status === 'scheduled' ? 'posts' : i.status === 'published' ? 'posted' : 'planned'} ${wmd(i.postDate)}` : ''}</span>` : ''}
+    </div>
+    ${stageLine(i)}
+    ${i.status === 'rejected' && i.rejectNote ? `<p class="why" style="margin-top:10px"><b>Why not</b>${esc(i.rejectNote)}</p>` : ''}
+  </header>
+
+  <div class="top-row">
+    <div class="card ready"><span class="lamp ${lv}" aria-hidden="true"><i></i><i></i><i></i></span><div class="what"><strong>${lvText}</strong><span>${esc(why)}</span>
+      ${gaps.length ? `<span class="waiting"><img class="peg-xs" src="${PEG}" alt="">In the storyboard: ${gaps.map(g => `beat ${g.n}, ${esc(g.gap)}`).join(' · ')}</span>` : ''}</div></div>
+    <button class="btn chatbtn" data-chat="${i.id}">${I.chat} Chat about it</button>
+  </div>
+
+  <section class="section"><h2>Design brief</h2>
+    <div class="design">
+      <div class="card brief">
+        <p class="pitch">${pitch(i)}</p>
+        <div class="bp-legend"><span><i></i>yours</span><span><i class="d"></i>drafted by an agent: tap to confirm or change</span></div>
+        <div class="angle"><span class="eyebrow">The angle ${i.drafted.includes('summary') ? '<span class="drafted">drafted</span>' : ''}</span><button data-edit="summary" data-id="${i.id}">${esc(i.summary) || '<span class="muted">Add the angle</span>'}</button></div>
+        <div class="links">
+          <div class="linkrow"><span class="k">Source</span><span>${i.sourceLink ? `<a href="${esc(i.sourceLink.url)}" target="_blank" rel="noopener">${esc(i.sourceLink.label)} ${I.link}</a>` : `<span class="muted">${{ experience: 'Your own experience. No link.', agent: 'Your notes', research: 'Research' }[i.origin] || 'None yet'}</span>`}</span></div>
+          <div class="linkrow"><span class="k">Brief</span><span>${i.brief ? `<span class="mono">${esc(i.brief)}</span>` : '<span class="muted">Orca writes the brief on the next pass</span>'}</span></div>
+          <div class="linkrow"><span class="k">Slack</span><span><a href="https://slack.com/" target="_blank" rel="noopener">#tiktok thread ${I.link}</a></span></div>
+        </div>
+        ${i.safety === 'blinded' ? `<div class="nox"><img class="felt-c" src="assets/nox.jpg" alt="Nox the felt owl, security"><span><strong>Blinded.</strong> Say "a team I worked with." No names on screen.</span></div>` : ''}
+      </div>
+      <div class="card look"><h3>Look <span style="text-transform:none;letter-spacing:0;font-weight:500">feeds the run of show</span></h3>
+        ${LOOK.map(([k, l]) => `<button class="field" data-edit="look.${k}" data-id="${i.id}"><span class="k">${l}</span><span class="v ${k === 'edit' ? 'long' : ''}">${esc(i.look[k]) || '<span class="muted" style="font-weight:400">Add</span>'}</span><span class="chev">${I.chev}</span></button>`).join('')}
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="hooks"><h2>Hooks <span class="count-pill num">${i.hooks.length}</span></h2>
+    ${i.rehook ? `<div class="rehook" role="status"><strong><span class="rehook-badge">Re-hook needed</span></strong>
+      <p>You changed the ${REHOOK[i.rehook.field]} from <strong>${esc(i.rehook.from || 'blank')}</strong> to <strong>${esc(i.rehook.to)}</strong>. Cody rebuilds the hooks on the next pass. You can still pick one of these, or write your own; either clears the flag.</p></div>` : ''}
+    ${i.hooks.length ? `<div class="hooks">${i.hooks.map((h, n) => `
+      <article class="card hook ${i.chosen === n ? 'chosen' : ''} ${i.rehook ? 'stale' : ''}">
+        <div class="top"><span class="chip">${esc(h.format)}</span>${h.rec ? '<span class="tag sm">recommended</span>' : ''}</div>
+        ${i.rehook ? '<span class="made-before">Made before your change</span>' : ''}
+        <p class="spoken">"${esc(h.spoken)}"</p>
+        <dl><div><dt>On-screen text</dt><dd>${esc(h.onscreen)}</dd></div><div><dt>First frame</dt><dd>${esc(h.frame)}</dd></div><div><dt>Payoff lands</dt><dd>${esc(h.payoff)}</dd></div></dl>
+        <button class="btn ${i.chosen === n ? 'primary' : ''}" data-pick="${i.id}" data-n="${n}">${i.chosen === n ? I.check + ' Chosen' : 'Pick this hook'}</button>
+      </article>`).join('')}</div>` : '<div class="card" style="padding:14px 16px"><p class="muted">Cody writes 3 to 5 hooks on the next agent pass.</p></div>'}
+    ${i.chosen === 'own' ? `<div class="card" style="padding:14px"><span class="eyebrow">Your own hook</span><p class="spoken" style="font-weight:600;margin-top:4px">"${esc(i.ownHook)}"</p></div>` : ''}
+    <div><button class="btn" data-own="${i.id}">Write my own hook</button></div>
+  </section>
+
+  <section class="section"><h2>Storyboard</h2>
+    <div class="card" style="padding:14px 16px;display:grid;gap:12px">
+      ${i.beats.length ? `<p class="muted small">Drafted by Mark from whatever is here. ${gaps.length ? `Where your words would make it better, he marks it.` : 'Nothing waiting on you.'}</p>${beatsHtml(i)}` : `<p class="muted">Mark drafts beats on the next pass with whatever is here${i.hooks.length ? '' : ', once Cody has hooks'}, and marks where your words would make it better.</p>`}
+    </div></section>
+
+  <section class="section"><h2>Gut check</h2>
+    <p class="gut-key">Would they keep watching? Tap a light to change it. <span><i style="background:var(--go)"></i>yes</span><span><i style="background:var(--caution)"></i>not sure</span><span><i style="background:var(--gut-no)"></i>no</span></p>
+    <div class="gutlist">${[['Dawn', 'wants it good for people'], ['Alex', 'wants the how'], ['Paloma', 'wants the plot']].map(([p, w]) => { const g = GUT[i.gut[p]]; return `<div class="card gcard">
+      <span class="who">${p}<small>${w}</small></span>
+      <button class="gmark ${g ? g[0] : ''}" data-gut="${i.id}" data-p="${p}" aria-label="Would ${p} keep watching? ${g ? g[1] : 'Not answered'}. Tap to change."><i></i>${g ? g[1] : 'Not yet'}</button>
+      <p class="tip"><b>Director's tip</b>${esc(tips[p])}</p></div>`; }).join('')}</div>
+  </section>
+
+  <section class="section"><h2>Your notes and Slack replies</h2>
+    <div class="card">${i.notes.map(n => `<div class="note"><span class="who" style="display:flex;align-items:center;gap:8px">${/^You/.test(n.who) ? `<img class="peg-xs" src="${PEG}" alt="">` : ''}${esc(n.who)}</span><p>${esc(n.text)}</p></div>`).join('') || '<div class="note"><p class="muted">No notes yet. Replies in the #tiktok thread show up here.</p></div>'}
+      <div class="note"><label class="who" for="note-${i.id}">Add a note</label><div style="display:flex;gap:8px"><input type="text" id="note-${i.id}" placeholder="Tighter open, start on the letter"><button class="btn" data-addnote="${i.id}">Add</button></div></div>
+    </div></section>
+  <div style="height:12px"></div>`;
+}
+
+/* ================= Sheets ================= */
+function openSheet(html) {
+  $('#overlay').innerHTML = `<div class="scrim" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  const f = $('.sheet textarea, .sheet input, .sheet .opt[aria-pressed="true"], .sheet .opt'); f && f.focus({ preventScroll: true });
+}
+function closeSheet() { $('#overlay').innerHTML = ''; }
+function editField(id, k) {
+  const i = idea(id);
+  if (k.startsWith('look.') || k === 'summary') {
+    const cur = k.startsWith('look.') ? i.look[k.slice(5)] : i[k];
+    const label = k.startsWith('look.') ? LOOK.find(l => 'look.' + l[0] === k)[1] : 'The angle';
+    const warn = k === 'summary' ? 'Changing the angle sets re-hook needed.' : "Look changes don't affect hooks.";
+    return openSheet(`<h3>${label}</h3><p class="hint">${warn}</p><textarea id="sheet-text">${esc(cur)}</textarea>
+      <div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-savetext="${id}" data-k="${k}">Save</button></div>`);
+  }
+  let opts;
+  if (k === 'pillar') opts = PILLARS.map(p => p.name);
+  else if (k === 'take') opts = Object.keys(TAKES);
+  else if (k === 'story') opts = ['', ...Object.keys(STORIES)];
+  else if (k === 'series') opts = ['', ...OPTS.series];
+  else opts = OPTS[k];
+  const label = o => k === 'take' ? `#${o} <small>${esc(TAKES[o][1])}</small>` : k === 'story' ? (o ? esc(STORIES[o]) : 'No story') : k === 'series' ? (o ? `${esc(o)} <small>next: episode ${nextEp(o, i)}</small>` : 'Not part of a series') : esc(o);
+  const drafted = i.drafted.includes(k);
+  const curVal = i[k] ?? '';
+  const retiredNote = curVal && isRetired(k, curVal) ? `<p class="hint">"${esc(curVal)}" is retired. It stays on this idea until you pick another.</p>` : '';
+  openSheet(`<h3>${LABEL[k]}</h3><p class="hint">${REHOOK[k] ? 'Changing this sets re-hook needed.' : 'Changing this keeps the hooks as they are.'}${drafted ? ' Drafted by an agent: confirm it or pick another.' : ''}${k === 'take' || k === 'story' ? ' From your bank.' : ''}</p>${retiredNote}
+    <div class="optlist">${opts.map(o => `<button class="opt" aria-pressed="${String(curVal) === String(o)}" data-set="${id}" data-k="${k}" data-v="${esc(o)}"><span>${label(o)}</span></button>`).join('')}
+    ${k === 'series' ? `<div class="opt" style="gap:8px"><input type="text" id="new-series" placeholder="New series name" style="border:0;padding:0"><button class="btn sm" data-newseries="${id}">Add</button></div>` : ''}
+    ${k === 'take' ? `<div class="opt" style="gap:8px"><input type="text" id="new-take" aria-label="New take" placeholder="Add a new take, in your words" style="border:0;padding:0"><button class="btn sm" data-newtake="${id}">Add</button></div><p class="muted small">A new take is saved to your takes bank as #${Math.max(...Object.keys(TAKES).map(Number)) + 1}.</p>` : ''}</div>
+    ${drafted ? `<div class="sheet-actions"><button class="btn primary" data-confirm="${id}" data-k="${k}">Confirm as drafted</button></div>` : ''}`);
+}
+function nextEp(name, i) {
+  const eps = S.ideas.filter(x => x.series === name && x !== i).map(x => x.ep || 0);
+  return (eps.length ? Math.max(...eps) : 0) + 1;
+}
+function setField(id, k, v) {
+  const i = idea(id); let from;
+  if (k.startsWith('look.')) { from = i.look[k.slice(5)]; i.look[k.slice(5)] = v; }
+  else { from = i[k]; i[k] = k === 'take' ? (v ? Number(v) : null) : (v === '' && (k === 'story') ? null : v); }
+  if (k === 'series') i.ep = v ? (from === v ? i.ep : nextEp(v, i)) : null;
+  i.drafted = i.drafted.filter(d => d !== k);
+  const changed = String(from ?? '') !== String(v ?? '');
+  if (changed && REHOOK[k] && i.hooks.length) {
+    const show = x => k === 'take' ? (x ? '#' + x : '') : k === 'summary' ? 'the earlier wording' : x;
+    i.rehook = { field: k, from: show(from), to: k === 'summary' ? 'your new wording' : show(v) };
+    toast(`${cap(REHOOK[k])} changed. Re-hook needed.`);
+  } else if (changed) toast(k.startsWith('look.') ? 'Saved. Hooks unchanged.' : 'Saved.');
+  else toast('Confirmed.');
+  S.flash = k; closeSheet(); render(); S.flash = null;
+}
+function rejectSheet(id) {
+  const i = idea(id);
+  openSheet(`<h3>Why not?</h3><p class="hint">A short note helps the next pitch. "${esc(i.title)}"</p>
+    <textarea id="reject-note" placeholder="Not my voice, or did one like it last week"></textarea>
+    <div class="quick">${['Not my voice', 'Too much like last week', 'Too negative', 'Not for Alex', 'Dunks on someone'].map(q => `<button data-quick="${esc(q)}">${q}</button>`).join('')}</div>
+    <div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-dorject="${id}">Reject</button></div>`);
+}
+function onDeckSheet(id) {
+  const i = idea(id);
+  const opts = WEEKS.filter(w => weekKind(w) !== 'past');
+  openSheet(`<h3>Put on deck</h3><p class="hint">"${esc(i.title)}"</p><div class="optlist">${opts.map(w => { const n = S.ideas.filter(x => x.week === w && WEEK_STATUSES.includes(x.status)).length;
+    return `<button class="opt" data-setweek="${id}" data-w="${w}"><span>Week of ${md(w)} <small>${w === CUR_WEEK ? 'making now, film Wed Nov 25' : 'next week'}</small></span><small class="num">${n} on deck</small></button>`; }).join('')}</div>`);
+}
+function statusTo(id, s) {
+  const i = idea(id); if (i.status === s) return;
+  if (s === 'published') return toast('Published moves on its own when the post date passes.');
+  if (s === 'scheduled') {
+    const def = i.postDate || addDays((i.week || CUR_WEEK), 7);
+    return openSheet(`<h3>When does it post?</h3><p class="hint">Scheduled means edited and waiting to publish. It moves to published on its own after this date.</p>
+      <label for="sheet-date" class="small" style="font-weight:600;display:block;margin-bottom:6px">Post date</label><input type="date" id="sheet-date" value="${def}">
+      <div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-savedate="${id}">Schedule it</button></div>`);
+  }
+  if (s === 'rejected') return rejectSheet(id);
+  move(id, s);
+}
+function move(id, to, extra) {
+  const i = idea(id); const snap = { status: i.status, week: i.week, rejectNote: i.rejectNote, postDate: i.postDate, addedAfterLock: i.addedAfterLock };
+  i.status = to;
+  if (['on deck', 'in progress'].includes(to)) { i.week = (extra && extra.week) || i.week || CUR_WEEK; if (to === 'on deck' && S.locked[i.week]) i.addedAfterLock = true; }
+  if (to === 'proposed' || to === 'backlog' || to === 'rejected') i.week = null;
+  if (extra && extra.note !== undefined) i.rejectNote = extra.note;
+  S.lockConfirm = false;
+  const msg = { 'on deck': `On deck for the week of ${md(i.week || CUR_WEEK)}.`, proposed: 'Back to proposed.', backlog: 'Moved to backlog.', rejected: 'Rejected. Your note is saved.', 'in progress': 'In progress.' }[to] || 'Saved.';
+  toast(msg, () => { Object.assign(i, snap); render(); });
+  render();
+}
+function chatSheet(id, who) {
+  const i = idea(id);
+  const people = [['orca', 'Orca, in the #tiktok thread', 'Producer. Changes go through mh and show up here.'], ['assoc', 'A marketing associate', 'Talks through the angle, the feeling and who it is for. Suggestions come back as drafted fields.'], ['cody', 'Cody, about the hooks', 'Rewrites hooks with you.']];
+  if (!who) return openSheet(`<h3>Chat about it</h3><p class="hint">Who do you want to work through "${esc(i.title)}" with?</p>
+    <div class="optlist">${people.map(([k, l, s]) => `<button class="opt" data-chatwho="${k}" data-id="${id}" style="display:grid;justify-items:start;gap:2px;padding:10px 14px"><span>${l}</span><small>${s}</small></button>`).join('')}</div>`);
+  const p = people.find(x => x[0] === who);
+  const what = who === 'orca' ? 'Opens this idea\'s Slack thread in #tiktok and pings Orca with the brief. Replies land in your notes here.' : who === 'cody' ? 'Starts a chat with Cody with the current hooks loaded.' : 'Opens a chat panel on this idea with your foundation, this week\'s mix and your banks loaded. Anything it changes comes back as drafted, for you to confirm.';
+  openSheet(`<h3>${p[1]} <span class="stub">stub</span></h3><p class="hint">${what}</p>
+    <div class="chat-preview"><div class="msg"><b>Sent for you</b>Can we talk about "${esc(i.title)}"? ${esc(i.summary).slice(0, 140)}${i.summary.length > 140 ? '...' : ''} Readiness is ${readyLevel(i)}: ${esc((i.ready || ['', ''])[1])}</div>
+    <div class="msg"><b>${who === 'orca' ? 'Orca' : who === 'cody' ? 'Cody' : 'Associate'} would reply</b>Happy to. Want to start with what's missing from you, or with the hook?</div></div>
+    <div class="sheet-actions"><button class="btn ghost" data-chat="${id}">Pick someone else</button><button class="btn primary" data-close>Done</button></div>`);
+}
+
+/* ================= Screen: Config ================= */
+function editableText(key, text) {
+  if (S.editing === key) return `<div style="display:grid;gap:8px"><textarea id="cfg-${key}">${esc(text)}</textarea><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost sm" data-cfg-cancel>Cancel</button><button class="btn primary sm" data-cfg-save="${key}">Save as new version</button></div></div>`;
+  return `<button class="editable" data-cfg-edit="${key}">${esc(text)}<span class="pen">Edit</span></button>`;
+}
+function chipsBlock(k) {
+  const ret = RETIRED[k] || [];
+  return `<div class="chips">${OPTS[k].map(o => `<span class="vchip">${esc(o)}<button class="x" data-retire="${k}" data-v="${esc(o)}" aria-label="Retire ${esc(o)}">${I.x}</button></span>`).join('')}
+    ${S.adding === k ? `<span class="chipbtn"><input type="text" id="add-${k}" placeholder="New value" data-addinput="${k}"></span>` : `<button class="chipbtn" data-addopt="${k}">${I.plus} Add</button>`}</div>
+    ${ret.length ? `<button class="retired-toggle" data-rtoggle="${k}" aria-expanded="${!!S.retiredOpen[k]}"><span class="chev">${I.chev}</span>Retired (${ret.length})</button>
+      ${S.retiredOpen[k] ? `<div class="chips">${ret.map(o => `<span class="vchip retired">${esc(o)}<button class="restore" data-restore="${k}" data-v="${esc(o)}">Restore</button></span>`).join('')}</div>` : ''}` : ''}`;
+}
+function rangeRow(key) {
+  const [lo, hi] = S.targets[key]; const lock = LOCK[key]; const win = key.startsWith('pillar') ? 14 : 7;
+  const step = (end, v) => `<span class="stepper"><button aria-label="Lower ${end}" data-step="${key}" data-end="${end}" data-d="-1">−</button><output class="num">${v}</output><button aria-label="Raise ${end}" data-step="${key}" data-end="${end}" data-d="1">+</button></span>`;
+  const grp = { type: 'Type', pillar: 'Pillar' }[key.split('.')[0]] || '';
+  return `<div class="range-row"><span class="lab">${esc(TARGET_LABEL[key])}<small>${grp} ${win} days</small></span>
+    <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end">${lock === 'min' ? '<span class="to">at most</span>' + step('hi', hi) : lock === 'max' ? '<span class="to">at least</span>' + step('lo', lo) : step('lo', lo) + '<span class="to">to</span>' + step('hi', hi)}</span></div>`;
+}
+function vConfig() {
+  const cur = VERSIONS[0];
+  const next = addDays(CONFIG.lastCheckin, CONFIG.cadenceWeeks * 7);
+  const lists = [['feeling', 'Feelings', 'each video names one'], ['style', 'Content styles', ''], ['series', 'Series', 'ideas pick from this list'], ['onCamera', 'On-camera setups', ''], ['voice', 'Voices and characters', ''], ['cta', 'Calls to action', ''], ['hookFormat', 'Hook formats', '']];
+  return `${mockbar()}${band('62% 30%')}
+  <header class="screen-head"><div><p class="eyebrow">Read by every agent</p><h1>Config</h1></div><span class="tag">version ${cur.n} · ${md(cur.date)}</span></header>
+  <div class="card agent-note"><img class="felt-c" src="assets/griz.jpg" alt="Griz the felt bear, the developer"><p><strong>Every agent reads this</strong><span class="muted">Each change saves as a new version, so you can see what the plan was when a video was made.</span></p></div>
+  <nav class="jump" aria-label="Config sections" style="margin-top:16px"><a href="#cfg-positioning" data-scroll>Positioning</a><a href="#cfg-lists" data-scroll>Option lists</a><a href="#cfg-ranges" data-scroll>Mix ranges</a><a href="#cfg-checkin" data-scroll>Check-in</a><a href="#cfg-history" data-scroll>History</a></nav>
+
+  <section class="section" id="cfg-positioning"><h2>Positioning</h2>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Through-line <span class="chip" style="text-transform:none;letter-spacing:0">every video carries it</span></span>${editableText('throughline', CONFIG.throughline)}</div>
+      <div class="cfg-item"><span class="k">Mission</span>${editableText('mission', CONFIG.mission)}</div>
+      <div class="cfg-item"><span class="k">The person</span>${editableText('person', CONFIG.person)}</div>
+    </div>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Pillars</span></div>
+      ${PILLARS.map((p, n) => `<div class="cfg-item pillar-row"><span class="dot" style="background:${p.color}"></span><div style="display:grid;gap:2px;min-width:0"><strong>${esc(p.name)}</strong>${editableText('pillar' + n, p.desc)}<span class="muted" style="font-size:13px">Carries the through-line: ${esc(p.carries)}</span></div></div>`).join('')}
+    </div>
+    <div class="card cfg">
+      <div class="cfg-item"><span class="k">Voice: vibe</span>${editableText('vibe', CONFIG.vibe)}</div>
+      <div class="cfg-item"><span class="k">Voice: advice</span>${editableText('advice', CONFIG.advice)}</div>
+    </div>
+  </section>
+
+  <section class="section" id="cfg-lists"><h2>Option lists</h2>
+    <p class="muted small" style="margin-top:-4px">Tap x to retire a value. New ideas won't offer it; past ideas keep it.</p>
+    <div class="card cfg">${lists.map(([k, l, s]) => `<div class="cfg-item"><span class="k">${l} <span class="count-pill num">${OPTS[k].length}</span>${s ? `<span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500;margin-left:auto">${s}</span>` : ''}</span>${chipsBlock(k)}</div>`).join('')}</div>
+  </section>
+
+  <section class="section" id="cfg-ranges"><h2>Mix ranges</h2>
+    <div class="card cfg">${Object.keys(S.targets).map(rangeRow).join('')}</div>
+    <p class="muted small">Same ranges as the meters on Plan week. Drag there or step here.</p>
+  </section>
+
+  <section class="section" id="cfg-checkin"><h2>Check-in cadence</h2>
+    <div class="card cfg"><div class="range-row"><span class="lab">Every<small>The app and Orca in Slack both prompt you</small></span>
+      <span class="stepper"><button aria-label="Fewer weeks" data-cadence="-1">−</button><output class="num">${CONFIG.cadenceWeeks}</output><button aria-label="More weeks" data-cadence="1">+</button><span class="to">weeks</span></span></div>
+      <div class="range-row"><span class="lab">Last check-in</span><span class="num">${fmtDate(CONFIG.lastCheckin)}</span></div>
+      <div class="range-row"><span class="lab">Next check-in</span><strong class="num">${fmtDate(next)}</strong></div></div>
+  </section>
+
+  <section class="section" id="cfg-history"><h2>Version history</h2>
+    <div class="card"><ul class="versions">${VERSIONS.map((v, n) => `<li><button class="ver ${n === 0 ? 'current' : ''}" data-ver="${v.n}" aria-expanded="${S.openVersion === v.n}"><span class="vn num">v${v.n}</span><span style="min-width:0"><strong style="font-weight:600">${esc(v.label)}</strong><br><span class="vd">${fmtDate(v.date)}${n === 0 ? ' · current' : ''}</span></span><span class="chev">${I.chev}</span></button>
+      ${S.openVersion === v.n ? `<div class="diff">${v.changes.length ? v.changes.map(c => `<div><span class="eyebrow">${esc(c.field)}</span><p class="was">${esc(c.from)}</p><p>${esc(c.to)}</p></div>`).join('') : '<p class="muted">The starting point: everything as it was in foundation.md.</p>'}</div>` : ''}</li>`).join('')}</ul></div>
+  </section>`;
+}
+function addVersion(label, change) {
+  const top = VERSIONS[0];
+  if (top.date === TODAY && top.label === label) top.changes.push(change);
+  else VERSIONS.unshift({ n: top.n + 1, date: TODAY, label, changes: [change] });
+  return VERSIONS[0].n;
+}
+
+/* ================= Screen: Film ================= */
+const FILM_DAYS = [['2026-11-24', 'Tue', 'Nov 24'], ['2026-11-25', 'Wed', 'Nov 25'], ['2026-11-26', 'Thu', 'Nov 26']];
+const GENERAL_PREP = ['Charge the mic and the phone', 'Clear the desk, camera left', 'Phone on do not disturb'];
+function filmIdeas() { return S.ideas.filter(i => i.week === CUR_WEEK && ['on deck', 'in progress'].includes(i.status)); }
+function buildRos() {
+  const blocks = [];
+  filmIdeas().forEach(i => {
+    const outfit = i.look.outfit || 'Outfit not set yet';
+    let b = blocks.find(b => b.outfit === outfit); if (!b) blocks.push(b = { outfit, groups: [] });
+    const setup = [i.look.setup, i.look.location].filter(Boolean).join(' · ') || 'Setup not set yet';
+    let g = b.groups.find(g => g.setup === setup); if (!g) b.groups.push(g = { setup, ids: [] });
+    g.ids.push(i.id);
+  });
+  return blocks;
+}
+function syncRos() {
+  const want = filmIdeas().map(i => i.id).sort().join();
+  const have = S.ros ? S.ros.flatMap(b => b.groups.flatMap(g => g.ids)).sort().join() : null;
+  if (want !== have) S.ros = buildRos();
+}
+function ck(key, text, slate) {
+  const on = !!S.prepDone[key];
+  return `<li><button class="ck" data-prep="${key}" aria-pressed="${on}"><span class="box">${on ? I.check : ''}</span><span class="txt">${esc(text)}</span>${slate ? `<span class="slate-s">${esc(slate)}</span>` : '<span></span>'}</button></li>`;
+}
+function scriptBlock(i) {
+  const open = !!S.scriptOpen[i.id]; const nd = i.script.filter(l => l.d).length, ng = i.script.filter(l => l.g).length;
+  return `<div style="display:grid;gap:10px"><button class="script-toggle" data-script="${i.id}" aria-expanded="${open}"><span>Script <span class="muted small" style="font-weight:500">${i.script.length ? `${i.script.length} lines${nd ? `, ${nd} drafted` : ''}${ng ? `, ${ng} need you` : ''}` : 'empty'}</span></span><span class="chev">${I.chev}</span></button>
+    ${open ? `<div class="script">${i.script.map((l, n) => `<div class="sline-wrap"><div class="sline ${l.d ? 'is-drafted' : ''}" contenteditable="true" role="textbox" aria-label="Script line ${n + 1}" data-sid="${i.id}" data-n="${n}">${esc(l.t)}</div>${l.d ? '<span class="drafted" data-dtag>drafted</span>' : '<span></span>'}${l.g ? `<span class="needs" data-gtag style="grid-column:1/-1;justify-self:start">needs you: ${esc(l.g)}</span>` : ''}</div>`).join('')}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-addline="${i.id}">${I.plus} Add a line</button><span class="muted small">Your words. Edit a drafted line and it becomes yours.</span></div></div>` : ''}</div>`;
+}
+function vidCard(i) {
+  const h = i.chosen === 'own' ? { spoken: i.ownHook, onscreen: '', frame: '' } : (i.chosen !== null && i.chosen !== undefined && i.hooks[i.chosen] ? i.hooks[i.chosen] : null);
+  const done = !!S.filmed[i.id];
+  const tips = i.tips;
+  return `<article class="card vid ${done ? 'done' : ''}" data-vid="${i.id}">
+    <div class="vid-top">
+      <div class="tt"><span class="slate">${esc(i.slate || 'SLATE TBD')}</span><h3>${esc(i.title)}</h3></div>
+      ${S.focus === null ? `<button class="handle" aria-label="Drag to reorder ${esc(i.title)}">${I.grip}</button>` : ''}
+    </div>
+    <div class="detail" style="display:grid;gap:16px">
+      ${h ? `<div style="display:grid;gap:4px"><span class="say-l">Say first</span><p class="say">"${esc(h.spoken)}"</p></div>
+        <div class="film-grid two"><div><span class="say-l">On-screen text</span><p class="v">${esc(h.onscreen)}</p></div><div><span class="say-l">First frame</span><p class="v">${esc(h.frame)}</p></div></div>`
+        : `<div class="nohook"><span>No hook picked yet</span><button class="btn sm" data-open="${i.id}">Pick a hook</button></div>`}
+      ${i.prep.length ? `<div><span class="say-l">Prep for this one</span><ul class="checklist vprep" style="margin-top:8px">${i.prep.map((p, n) => ck(`${i.id}:${n}`, p)).join('')}</ul></div>` : ''}
+      ${i.beats.length ? `<div><span class="say-l">Beats</span>${beatsHtml(i, 'margin-top:8px')}</div>` : ''}
+      ${tips ? `<div class="film-tips"><span class="say-l">Director's tips</span>${['Dawn', 'Alex', 'Paloma'].map(p => `<p><b>${p}:</b> ${esc(tips[p])}</p>`).join('')}</div>` : ''}
+      <div class="film-grid two">
+        <div><span class="say-l">Voice</span><p class="v">${esc(i.voice)}</p></div>
+        <div><span class="say-l">Feeling</span><p class="v">${esc(i.feeling)}</p></div>
+        <div><span class="say-l">Props</span><p class="v">${esc(i.look.props) || 'None'}</p></div>
+        <div><span class="say-l">Call to action</span><p class="v">${esc(i.cta)}${i.ctaLink && i.cta !== 'none' ? ': ' + esc(i.ctaLink) : ''}</p></div>
+      </div>
+      ${scriptBlock(i)}
+      ${i.look.edit ? `<div><span class="say-l">Edit notes for Descript</span><p class="edit-notes" style="margin-top:6px">${esc(i.look.edit)}</p></div>` : ''}
+    </div>
+    <button class="filmed-btn" data-filmed="${i.id}" aria-pressed="${done}"><span class="box">${done ? I.check : ''}</span>${done ? 'Filmed' : 'Mark filmed'}</button>
+  </article>`;
+}
+function vFilm() {
+  syncRos();
+  const dayBtns = FILM_DAYS.map(([d, w, l]) => `<button class="day" data-day="${d}" aria-pressed="${S.filmDay === d}">${w}<small>${l}${d === '2026-11-26' ? ' · holiday' : ''}</small></button>`).join('');
+  const head = `${mockbar()}${band('84% 74%')}
+    <div class="film-head"><div><p class="eyebrow">Run of show</p><h1 style="font-size:26px">Film day</h1><span class="tag sm" style="margin-top:6px">Thursday is Thanksgiving</span></div>
+      <figure class="polaroid r" style="margin:0;width:88px"><img src="${PEG}" alt="Peg-doll Mariena, in a coral sweater"><figcaption>you</figcaption></figure></div>
+    <div class="days">${dayBtns}</div>`;
+  if (S.filmDay !== '2026-11-25') return `${head}<div class="card empty" style="margin-top:20px"><figure class="polaroid" style="margin:0"><img src="assets/jay.jpg" alt="Jay the felt jay"><figcaption>Jay</figcaption></figure><h2 style="font-size:18px">Nothing to film this day</h2><p class="muted small">This week's run of show is on Wednesday. It has ${filmIdeas().length} videos.</p><button class="btn" data-day="2026-11-25">Go to Wednesday</button></div>`;
+  const all = S.ros.flatMap(b => b.groups.flatMap(g => g.ids)).map(idea).filter(Boolean);
+  const nDone = all.filter(i => S.filmed[i.id]).length;
+  const prepItems = GENERAL_PREP.map((t, n) => ck('gen:' + n, t)).concat(all.flatMap(i => i.prep.map((p, n) => ck(`${i.id}:${n}`, p, i.slate))));
+  const nPrep = GENERAL_PREP.length + all.reduce((a, i) => a + i.prep.length, 0);
+  const nPrepDone = Object.keys(S.prepDone).filter(k => S.prepDone[k]).length;
+  const top = `${head}
+  <div style="display:grid;gap:8px;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;font-weight:600"><span class="num">${nDone} of ${all.length} filmed</span><span class="muted num" style="font-weight:500">${S.ros.length} outfits</span></div>
+    <div class="progress"><i style="width:${all.length ? nDone / all.length * 100 : 0}%"></i></div>
+    <div class="film-tools">${S.focus === null ? '<button class="btn" data-focus="0">One at a time</button>' : '<button class="btn" data-focus="off">Show the whole list</button>'}<button class="btn ghost" data-wake>Keep screen on</button></div>
+  </div>
+  <section class="card" style="margin-top:18px"><div class="prep-head"><h2>Before you start</h2><span class="muted small num">${nPrepDone} of ${nPrep} done</span></div><ul class="checklist">${prepItems.join('')}</ul></section>`;
+  if (S.focus !== null) {
+    const idx = Math.max(0, Math.min(S.focus, all.length - 1)); const i = all[idx];
+    const blockN = S.ros.findIndex(b => b.groups.some(g => g.ids.includes(i.id)));
+    const g = S.ros[blockN].groups.find(g => g.ids.includes(i.id));
+    return `<div class="film">${top}<div class="block"><div class="block-head"><span class="tag">outfit ${blockN + 1}</span><h2>${esc(S.ros[blockN].outfit)}</h2></div><p class="setup">${esc(g.setup)}</p>${vidCard(i)}</div>
+      <div class="focusnav"><button class="btn" data-focus="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>Previous</button><span class="num" style="font-weight:700">${idx + 1} / ${all.length}</span><button class="btn primary" data-focus="${idx + 1}" ${idx === all.length - 1 ? 'disabled' : ''}>Next</button></div></div>`;
+  }
+  return `<div class="film">${top}
+    <div id="blocks">${S.ros.map((b, bn) => `<section class="block" data-block="${bn}">
+      <div class="block-head"><span class="tag">outfit ${bn + 1}</span><h2 style="flex:1">${esc(b.outfit)}</h2></div>
+      ${b.groups.map((g, gn) => `<p class="setup">${esc(g.setup)}</p><div class="vlist" data-b="${bn}" data-g="${gn}">${g.ids.map(id => vidCard(idea(id))).join('')}</div>`).join('')}
+    </section>`).join('')}</div>
+    <p class="example-note">Drag the grip to reorder within a setup. Grouped by outfit, then setup, so you change clothes and move the camera as little as possible.</p></div>`;
+}
+function wireSortables() {
+  document.querySelectorAll('.vlist').forEach(list => {
+    list.querySelectorAll('.handle').forEach(hd => hd.addEventListener('pointerdown', e => {
+      e.preventDefault(); const item = hd.closest('.vid'); hd.setPointerCapture(e.pointerId); item.classList.add('dragging');
+      const mv = ev => {
+        const sibs = [...list.querySelectorAll('.vid')].filter(s => s !== item);
+        const after = sibs.find(s => { const r = s.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
+        if (after) list.insertBefore(item, after); else list.appendChild(item);
+      };
+      const up = () => {
+        hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
+        item.classList.remove('dragging');
+        const ids = [...list.querySelectorAll('.vid')].map(v => v.dataset.vid);
+        const g = S.ros[list.dataset.b].groups[list.dataset.g];
+        if (ids.join() !== g.ids.join()) { g.ids = ids; toast('Filming order saved.'); }
+      };
+      hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+    }));
+  });
+}
+
+/* ================= Events ================= */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a, [data-close]'); if (!t) return;
+  const d = t.dataset;
+  if (d.undo !== undefined) { const u = S.undo; S.undo = null; $('#toast').hidden = true; if (u) u(); return; }
+  if (d.close !== undefined) { S.draft = null; return closeSheet(); }
+  if (d.flag) { document.documentElement.dataset.flag = d.flag; try { localStorage.setItem('mh-flag', d.flag); } catch (_) {} render();
+    const nm = d.flag === 'dot' ? 'coral dot' : 'coral edge';
+    if (!document.querySelector('#main .flag')) toast(`Flags now: ${nm}. See them on Plan week.`); else toast(`Flags now: ${nm}.`); return; }
+  if (d.go) { closeSheet(); return go(d.go); }
+  if (d.open) { const r = route().screen; if (r !== 'idea') S.backTo = r; return go('idea-' + d.open); }
+  if (d.itab) { S.ideasTab = d.itab; return render(); }
+  if (d.add !== undefined) { S.draft = { src: 'experience', title: '', link: '', text: '', take: '', dest: 'proposed', toBank: true }; return openSheet(addForm()); }
+  if (d.addsrc) { captureDraft(); S.draft.src = d.addsrc; $('.sheet').innerHTML = '<div class="grab"></div>' + addForm(); return; }
+  if (d.adddest) { captureDraft(); S.draft.dest = d.adddest; $('.sheet').innerHTML = '<div class="grab"></div>' + addForm(); return; }
+  if (d.tobank !== undefined) { captureDraft(); S.draft.toBank = !S.draft.toBank; $('.sheet').innerHTML = '<div class="grab"></div>' + addForm(); return; }
+  if (d.addsave !== undefined) return saveDraft();
+  if (d.ondeck) return onDeckSheet(d.ondeck);
+  if (d.setweek) { closeSheet(); return move(d.setweek, 'on deck', { week: d.w }); }
+  if (d.ondeckw) return move(d.ondeckw, 'on deck', { week: S.week });
+  if (d.offdeck) return move(d.offdeck, 'proposed');
+  if (d.move) return move(d.move, d.to);
+  if (d.reject) return rejectSheet(d.reject);
+  if (d.quick) { const ta = $('#reject-note'); ta.value = ta.value ? ta.value.replace(/\.?\s*$/, '. ') + d.quick : d.quick; ta.focus(); return; }
+  if (d.dorject) { const note = $('#reject-note').value.trim(); closeSheet(); return move(d.dorject, 'rejected', { note: note || 'No note' }); }
+  if (d.status) return statusTo(d.id, d.status);
+  if (d.savedate) { const v = $('#sheet-date').value; if (!v) return; const i = idea(d.savedate); const snap = { status: i.status, postDate: i.postDate, week: i.week };
+    i.postDate = v; i.week = i.week || CUR_WEEK; i.status = v <= TODAY ? 'published' : 'scheduled'; closeSheet();
+    toast(i.status === 'published' ? 'That date has passed, so it shows as published.' : `Scheduled. Posts ${wmd(v)}.`, () => { Object.assign(i, snap); render(); }); return render(); }
+  if (d.chat) return chatSheet(d.chat);
+  if (d.chatwho) return chatSheet(d.id, d.chatwho);
+  if (d.edit) return editField(d.id, d.edit);
+  if (d.set !== undefined && d.k) return setField(d.set, d.k, d.v);
+  if (d.newseries) { const v = ($('#new-series').value || '').trim(); if (!v) return; if (!OPTS.series.includes(v)) { OPTS.series.push(v); addVersion('Series added', { field: 'Series', from: '', to: `Added "${v}"` }); } return setField(d.newseries, 'series', v); }
+  if (d.confirm) { const i = idea(d.confirm); i.drafted = i.drafted.filter(x => x !== d.k); closeSheet(); toast('Confirmed.'); S.flash = d.k; render(); S.flash = null; return; }
+  if (d.savetext) return setField(d.savetext, d.k, $('#sheet-text').value.trim());
+  if (d.pick) { const i = idea(d.pick); i.chosen = +d.n; const had = !!i.rehook; i.rehook = null; toast(had ? 'Hook picked. Re-hook cleared.' : 'Hook picked.'); return render(); }
+  if (d.own) { const i = idea(d.own); return openSheet(`<h3>Write my own hook</h3><p class="hint">Your first spoken line. It replaces the picked option and clears re-hook needed.</p><textarea id="sheet-own">${esc(i.ownHook || '')}</textarea><div class="sheet-actions"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-saveown="${i.id}">Use this hook</button></div>`); }
+  if (d.saveown) { const i = idea(d.saveown); const v = $('#sheet-own').value.trim(); if (!v) return; i.ownHook = v; i.chosen = 'own'; i.rehook = null; closeSheet(); toast('Your hook is chosen.'); return render(); }
+  if (d.gut) { const g = idea(d.gut).gut; const order = ['yes', 'not sure', 'no']; g[d.p] = order[(order.indexOf(g[d.p]) + 1) % 3]; render();
+    const b = document.querySelector(`[data-gut="${d.gut}"][data-p="${d.p}"]`); b && b.focus({ preventScroll: true }); return; }
+  if (d.newtake) { const v = ($('#new-take').value || '').trim(); if (!v) return; const n = addTake(v); toast(`Saved to your takes bank as #${n}.`); return setField(d.newtake, 'take', String(n)); }
+  if (d.addnote) { const inp = $('#note-' + d.addnote); if (!inp.value.trim()) return; idea(d.addnote).notes.push({ who: 'You in the app, Nov 19', text: inp.value.trim() }); return render(); }
+  if (d.toggleProposed !== undefined) { S.includeProposed = !S.includeProposed; return render(); }
+  if (d.wk) { const k = WEEKS.indexOf(S.week) + +d.wk; if (k < 0 || k >= WEEKS.length) return; S.week = WEEKS[k]; S.lockConfirm = false; return render(); }
+  if (d.dim) { S.dimOpen[d.dim] = !S.dimOpen[d.dim]; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if (d.lock !== undefined) { const off = computeMix().filter(x => x.off).length; if (off) { S.lockConfirm = true; return render(); } }
+  if (d.lock !== undefined || d.lockyes !== undefined) { S.locked[S.week] = TODAY; S.lockConfirm = false; toast(`Marked reviewed ${md(TODAY)}.`, () => { delete S.locked[S.week]; render(); }); return render(); }
+  if (d.lockno !== undefined) { S.lockConfirm = false; return render(); }
+  if (d.unlock !== undefined) { delete S.locked[S.week]; S.ideas.forEach(i => { i.addedAfterLock = false; }); toast('Marked not reviewed.'); return render(); }
+  if (d.cfgEdit) { S.editing = d.cfgEdit; render(); const ta = $('#cfg-' + d.cfgEdit); ta && ta.focus(); return; }
+  if (d.cfgCancel !== undefined) { S.editing = null; return render(); }
+  if (d.cfgSave) { const k = d.cfgSave, v = $('#cfg-' + k).value.trim(); let from, field;
+    if (k.startsWith('pillar')) { const p = PILLARS[+k.slice(6)]; from = p.desc; p.desc = v; field = `Pillar: ${p.name}`; }
+    else { from = CONFIG[k]; CONFIG[k] = v; field = { throughline: 'Through-line', mission: 'Mission', person: 'The person', vibe: 'Voice: vibe', advice: 'Voice: advice' }[k]; }
+    S.editing = null; if (from !== v) { const n = addVersion(`${field} edited`, { field, from, to: v }); toast(`Saved as version ${n}.`); } return render(); }
+  if (d.addopt) { S.adding = d.addopt; render(); const inp = $('#add-' + d.addopt); inp && inp.focus(); return; }
+  if (d.retire) { const k = d.retire, v = d.v; OPTS[k] = OPTS[k].filter(o => o !== v); RETIRED[k].push(v); addVersion('Option list changed', { field: k, from: v, to: `Retired "${v}"` });
+    toast(`Retired "${v}". Past ideas keep it.`, () => { RETIRED[k] = RETIRED[k].filter(o => o !== v); OPTS[k].push(v); render(); }); return render(); }
+  if (d.restore) { const k = d.restore, v = d.v; RETIRED[k] = RETIRED[k].filter(o => o !== v); OPTS[k].push(v); addVersion('Option list changed', { field: k, from: '', to: `Restored "${v}"` }); toast(`Restored "${v}".`); return render(); }
+  if (d.rtoggle) { S.retiredOpen[d.rtoggle] = !S.retiredOpen[d.rtoggle]; return render(); }
+  if (d.step) { const r = S.targets[d.step]; const iEnd = d.end === 'lo' ? 0 : 1; const nv = r[iEnd] + +d.d;
+    if (nv < 0 || nv > 14 || (iEnd === 0 && nv > r[1]) || (iEnd === 1 && nv < r[0])) return;
+    const from = `${r[0]} to ${r[1]}`; r[iEnd] = nv; addVersion('Mix ranges changed', { field: TARGET_LABEL[d.step], from, to: `${r[0]} to ${r[1]}` }); return render(); }
+  if (d.cadence) { const v = CONFIG.cadenceWeeks + +d.cadence; if (v < 1 || v > 26) return; const from = CONFIG.cadenceWeeks; CONFIG.cadenceWeeks = v; addVersion('Check-in cadence changed', { field: 'Check-in cadence', from: `every ${from} weeks`, to: `every ${v} weeks` }); return render(); }
+  if (d.ver) { S.openVersion = S.openVersion === +d.ver ? null : +d.ver; return render(); }
+  if (d.scroll !== undefined) { e.preventDefault(); const el = document.querySelector(t.getAttribute('href')); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (d.day) { S.filmDay = d.day; S.focus = null; return render(); }
+  if (d.prep) { S.prepDone[d.prep] = !S.prepDone[d.prep]; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if (d.script) { S.scriptOpen[d.script] = !S.scriptOpen[d.script]; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if (d.addline) { const i = idea(d.addline); i.script.push({ t: '', d: false }); const y = window.scrollY; render(); window.scrollTo(0, y); const els = document.querySelectorAll(`.sline[data-sid="${i.id}"]`); els.length && els[els.length - 1].focus(); return; }
+  if (d.filmed) { const i = idea(d.filmed); S.filmed[i.id] = !S.filmed[i.id];
+    if (S.filmed[i.id] && i.status === 'on deck') { i.status = 'in progress'; toast('Filmed. Status moved to in progress.'); }
+    const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if (d.focus) { S.focus = d.focus === 'off' ? null : +d.focus; render(); window.scrollTo(0, 0); return; }
+  if (d.wake !== undefined) { try { navigator.wakeLock.request('screen').then(() => { t.textContent = 'Screen stays on'; }).catch(() => toast("This browser won't keep the screen on.")); } catch (_) { toast("This browser won't keep the screen on."); } return; }
+});
+document.addEventListener('submit', e => e.preventDefault());
+document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.takesel !== undefined && S.draft) {
+    captureDraft(); $('.sheet').innerHTML = '<div class="grab"></div>' + addForm();
+    const nt = $('#add-newtake'); nt && nt.focus();
+  }
+});
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('sline')) return;
+  const i = idea(el.dataset.sid); const line = i.script[+el.dataset.n]; line.t = el.textContent; if (line.d) { line.d = false; el.classList.remove('is-drafted'); const tag = el.parentNode.querySelector('[data-dtag]'); if (tag) tag.hidden = true; }
+  if (line.g) { line.g = null; const gt = el.parentNode.querySelector('[data-gtag]'); if (gt) gt.hidden = true; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#overlay').innerHTML) { S.draft = null; closeSheet(); }
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.addinput) {
+    const k = e.target.dataset.addinput, v = e.target.value.trim(); S.adding = null;
+    if (v && !OPTS[k].includes(v)) { OPTS[k].push(v); RETIRED[k] = (RETIRED[k] || []).filter(o => o !== v); addVersion('Option list changed', { field: k, from: '', to: `Added "${v}"` }); toast(`Added "${v}". Saved as a new version.`); }
+    render();
+  }
+  if (e.key === 'Enter' && e.target.id && e.target.id.startsWith('note-')) { const b = document.querySelector(`[data-addnote="${e.target.id.slice(5)}"]`); b && b.click(); }
+  const h = e.target.closest && e.target.closest('.track .h');
+  if (h && ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); nudge(h, ['ArrowRight', 'ArrowUp'].includes(e.key) ? 1 : -1); }
+});
+document.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.addinput) setTimeout(() => { if (S.adding) { S.adding = null; render(); } }, 150); });
+
+/* Range dragging: saves straight away, with undo */
+function setEnd(key, end, v, scale) {
+  const r = S.targets[key]; v = Math.max(0, Math.min(scale, v));
+  if (end === 'lo') v = Math.min(v, r[1]); else v = Math.max(v, r[0]);
+  const idx = end === 'lo' ? 0 : 1; if (r[idx] === v) return false;
+  r[idx] = v; paintMeters(); return true;
+}
+function savedRange(key, label, start) {
+  const r = S.targets[key]; if (r[0] === start[0] && r[1] === start[1]) return;
+  addVersion('Mix ranges changed', { field: TARGET_LABEL[key], from: `${start[0]} to ${start[1]}`, to: `${r[0]} to ${r[1]}` });
+  render();
+  toast(`${label}: now ${targetText(key)}. Saved.`, () => { S.targets[key] = start.slice(); render(); });
+}
+function nudge(h, dlt) {
+  const row = h.closest('.mrow'); const key = row.dataset.key, end = h.dataset.end, start = S.targets[key].slice();
+  if (setEnd(key, end, S.targets[key][end === 'lo' ? 0 : 1] + dlt, +row.dataset.scale)) {
+    savedRange(key, row.dataset.label, start);
+    const nh = document.querySelector(`.mrow[data-key="${CSS.escape(key)}"][data-label="${CSS.escape(row.dataset.label)}"] [data-end="${end}"]`); nh && nh.focus();
+  }
+}
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.track .h'); if (!h) return;
+  e.preventDefault(); h.focus(); h.setPointerCapture(e.pointerId);
+  const row = h.closest('.mrow'), track = row.querySelector('.track'), key = row.dataset.key, end = h.dataset.end, scale = +row.dataset.scale;
+  const start = S.targets[key].slice(), label = row.dataset.label;
+  const mv = ev => { const r = track.getBoundingClientRect(); const cell = r.width / (scale + 1); const raw = Math.round((ev.clientX - r.left) / cell); setEnd(key, end, end === 'lo' ? raw : raw - 1, scale); };
+  const up = () => { h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); savedRange(key, label, start); };
+  h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+});
+
+render();
+</script>

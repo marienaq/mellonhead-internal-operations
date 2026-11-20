@@ -1,0 +1,198 @@
+<title>Round 2 Questions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Caveat:wght@700&display=swap">
+<style>
+/* Layout: one reading column of question cards, grouped by who asked; a sticky footer tallies answers and copies them back to Claude.
+   Single light theme on purpose, matching the mockup and the brand (no dark backgrounds). */
+:root {
+  color-scheme: light;
+  --ground: #EBF0E5;
+  --paper: #FFFFFF;
+  --sage-soft: #DDE5D4;
+  --line: #CAD3C0;
+  --ink: #1F2A24;
+  --ink-2: #48544D;
+  --ink-3: #66726B;
+  --forest: #23402F;
+  --coral: #F46665;
+  --coral-tint: #FDE3E2;
+  --kraft: #C4A27A;
+  --kraft-ink: #3B2C1A;
+  --font: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: "Caveat", "Bradley Hand", cursive;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid #24485A; outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 140px; display: grid; gap: 28px; }
+.strip { height: 10px; background: linear-gradient(90deg, var(--kraft) 0 20%, #F6B79A 20% 40%, var(--coral) 40% 60%, #24485A 60% 80%, var(--forest) 80%); }
+header { display: grid; gap: 10px; padding-top: 22px; }
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+h1 { font-size: 28px; line-height: 1.15; letter-spacing: -.01em; }
+.lede { color: var(--ink-2); max-width: 62ch; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none; color: var(--ink); }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--forest); border-color: var(--forest); color: #fff; }
+
+.group { display: grid; gap: 14px; }
+.group > h2 { font-size: 19px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.group > h2 small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+
+.q { background: var(--paper); border-radius: 14px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 1px 0 rgba(31,42,36,.06), 0 6px 18px -12px rgba(31,42,36,.3); }
+.q.done { box-shadow: inset 0 0 0 2px var(--sage-soft); }
+.q-head { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+.qn { font-weight: 700; font-size: 13px; background: var(--ground); border-radius: 8px; padding: 3px 8px; font-variant-numeric: tabular-nums; }
+.q.done .qn { background: var(--forest); color: #fff; }
+.q h3 { font-size: 16.5px; line-height: 1.35; }
+.why { color: var(--ink-2); font-size: 14px; }
+.see { font-size: 13px; font-weight: 600; color: var(--forest); text-decoration: none; justify-self: start; display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+.see:hover { text-decoration: underline; }
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.opt:hover { background: #F7F9F4; }
+.opt input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--forest); }
+.opt:has(input:checked) { border: 2px solid var(--forest); background: #F4F7F1; padding: 11px 13px; }
+.opt-label { font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.opt-desc { font-size: 13.5px; color: var(--ink-2); font-weight: 400; display: block; margin-top: 2px; }
+.rec { font-family: var(--hand); font-size: 18px; line-height: 1; color: var(--kraft-ink); background: var(--kraft); padding: 3px 10px; border-radius: 4px; }
+.conflict { font-size: 13px; font-weight: 600; background: var(--coral-tint); border: 1.5px solid var(--coral); border-radius: 999px; padding: 2px 10px; justify-self: start; }
+textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); font-size: 14px; resize: vertical; }
+
+.foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--paper); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.foot-in { max-width: 760px; margin: 0 auto; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.tally { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tally small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); }
+#copybox { width: 100%; min-height: 160px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+</style>
+
+<div class="strip" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Content planner · round 2 · Nov 19</p>
+    <h1>Questions before the prototype</h1>
+    <p class="lede">Fourteen calls from the PM and the designer. Your walk-through settled the felt look and the review button; two new ones came out of it. Each one has a recommendation; pick it or choose another, and add a note if you like. "See it" links open the matching screen in the mockup.</p>
+    <div class="toolbar">
+      <a class="btn" href="https://claude.ai/artifact/UbcaD7xtXg3ekbETNLSCdz" target="_blank" rel="noopener">Open the mockup</a>
+      <button class="btn" id="accept-all" type="button">Pick every recommendation</button>
+    </div>
+  </header>
+  <div id="groups"></div>
+</div>
+
+<div class="foot">
+  <div class="foot-in">
+    <span class="tally" id="tally">0 of 14 answered<small>Your picks stay in this browser until you send them</small></span>
+    <button class="btn primary" id="copy" type="button">Copy answers for Claude</button>
+  </div>
+</div>
+<div id="copywrap" hidden style="position:fixed;inset:0;background:rgba(31,42,36,.4);z-index:40;display:grid;place-items:center;padding:16px">
+  <div style="background:var(--paper);border-radius:16px;padding:18px;max-width:640px;width:100%;display:grid;gap:12px">
+    <h3>Paste this back into Claude Code</h3>
+    <textarea id="copybox" readonly></textarea>
+    <div style="display:flex;justify-content:flex-end"><button class="btn" id="copyclose" type="button">Close</button></div>
+  </div>
+</div>
+
+<script>
+const MOCK = 'https://claude.ai/artifact/UbcaD7xtXg3ekbETNLSCdz';
+const GROUPS = [
+  { title: 'Look and feel', sub: 'the designer asks', qs: [
+    { id: 'flag', q: 'Which off-target flag style?', why: 'You saw no difference last time: the flags only show on Plan week, and the two looked alike. Now coral dot is a pill with a big dot, and coral edge is a thick coral stripe down the card. Switch at the top of Plan week and open a mix row.', see: 'plan',
+      opts: [['Coral dot', 'A white pill with a coral ring and dot. Reads as a label.', true], ['Coral edge', 'A coral underline on the flag and a coral stripe down the left of the card. Quieter.']] },
+    { id: 'animals', q: 'Should the felt animals stand in for your agents?', why: 'Right now Bev shows up on Ideas, Jay on locking the week, Griz on Config and Nox on client safety, but Orca, Cody and Mark have no faces. cast.md already says the felt animals are the AI agents.', see: 'ideas',
+      opts: [['Yes: give Orca, Cody and Mark each a felt animal', 'You pick which animal is which. Each one appears where that agent acts.', true], ['Keep the animals as decoration', 'They set the mood but don\'t stand for anyone.'], ['Save the animals for content only', 'Keep the app plainer.']] },
+    { id: 'yellow', q: 'The yellow readiness light is #D9A441, which is not in your palette. OK?', why: 'Green and red come from the palette (moss and coral). Kraft is the closest palette color, but it reads brown, not yellow, in a traffic light.', see: 'ideas',
+      opts: [['Yes, as a functional color for the light only', 'It never appears anywhere else.', true], ['Use kraft instead', 'On-brand, but harder to read as "yellow".'], ['Use peach instead', 'Softer; close to coral, so red and yellow may blur.']] }
+  ]},
+  { title: 'Idea page', sub: 'the redesign you asked for', qs: [
+    { id: 'pitch', q: 'Does the tappable paragraph work better than the long table?', why: 'The design brief now reads as a pitch: "A Messy authority video in workplace advice style... leaves Alex feeling seen..." Each underlined part opens a picker. Dashed underline means an agent drafted it.', see: 'idea-tell-boss',
+      opts: [['Yes, keep the paragraph', '', true], ['Paragraph plus a "show as list" switch', 'For when you want to scan every field.'], ['Back to a list, but shorter', 'Say what to cut in the note.']] },
+    { id: 'ready', q: 'What decides the green, yellow or red readiness light?', why: 'The light should tell you how much of the video came from you, so you know where to add your words.', see: 'idea-data-stories',
+      opts: [['A simple rule', 'Green: your take in your words plus a story or source. Yellow: one of those. Red: neither, mostly drafted. Always shows what is missing.', true], ['An agent judges it', 'Orca rates it each pass and says why. More nuanced, less predictable.'], ['Rule first, agent can lower it', 'The rule sets the ceiling; Orca can flag a thin story.']] },
+    { id: 'tips', q: "Who writes the director's tips under Dawn, Alex and Paloma?", why: 'Each gut-check card ends with what in this video serves that person. They also show in film mode.', see: 'idea-tell-boss',
+      opts: [['Orca drafts them, marked drafted', 'You edit or confirm.', true], ['Mark drafts them with the storyboard', 'They come with the beats.'], ['You write them', 'Blank until you add one.']] },
+    { id: 'chat', q: 'What should "Chat about it" open in the prototype?', why: 'In the mockup it asks who: Orca in the Slack thread, a marketing associate, or Cody for hooks. All three are stubs.', see: 'idea-tell-boss',
+      opts: [["The idea's Slack thread with Orca", 'Works with what exists today. A chat panel inside the app comes later.', true], ['A marketing associate chat inside the app', 'Needs more build; it would read your foundation, the mix and your banks.'], ['Keep the "who" picker with all three', 'Each opens its own place.']] },
+    { id: 'stage', q: 'What happens to the separate "episode stage" field?', why: 'Your new statuses (on deck, in progress, scheduled, published) cover most of it. The mockup shows stage as a small progress line under the status.', see: 'idea-context',
+      opts: [['Keep it only as a progress line', 'Before filming: storyboarded, take added, hook picked. After: filmed, rough cut, polished. Marking filmed moves the idea to in progress.', true], ['Drop it entirely', 'Status is enough.']] }
+  ]},
+  { title: 'Planning and filming', sub: 'the product manager asks', qs: [
+    { id: 'home', q: 'Make Plan week the home screen?', why: 'Earlier you picked "This week". That screen is now split into Ideas and Plan week.', see: 'plan',
+      opts: [['Plan week', 'The week you are making, with the mix and the lock.', true], ['Ideas', 'Open on what is waiting for you to review.']] },
+    { id: 'rosbuild', q: 'What tells Orca to build the run of show?', why: '"Done reviewing this week" no longer triggers anything, as you asked. Something else has to start the film-day build.', see: 'film',
+      opts: [['Orca keeps a draft all week, final build the night before film day', 'This week that is Tuesday night for Wednesday. You can reorder on the day.', true], ['Orca builds it when every on-deck idea has a hook picked', ''], ['You ask for it', 'A "Build run of show" button on Film.']] },
+    { id: 'vpgap', q: 'Is a beat waiting on someone else\'s permission a "needs you" gap?', why: '"The agents barely got used" has a beat waiting on the VP\'s yes to quote her. Right now it shows "needs you", the same as a missing take.', see: 'idea-skills-stuck',
+      opts: [['No: show it as "waiting on" someone else, in a different style', 'Needs you stays for your words only.', true], ['Yes, treat it the same', 'You are the one who has to ask.']] },
+    { id: 'countsched', q: 'Should the mix count scheduled ideas too?', why: 'Otherwise a video drops out of the mix the moment it is edited and scheduled, and the week looks short.', see: 'plan',
+      opts: [['Yes: on deck, in progress and scheduled', '', true], ['Only on deck and in progress', 'Matches the original brief wording.']] },
+    { id: 'script', q: 'Who writes the script in film mode?', why: 'The brief said the app never writes your lines. You asked for an editable script, so this changes that rule.', see: 'film',
+      opts: [['Agents may draft lines, marked drafted', 'Editing a drafted line makes it yours. Your take is never drafted for you.', true], ['Only your words', 'The script starts empty and holds what you write or dictate.'], ['Agents draft only when you ask', 'A "draft a script" button per video.']] },
+    { id: 'addidea', q: 'Is the "Add an idea" form the right size?', why: 'It asks four things: where it came from, a working title, the link (for something online or research) and what happened in your words. Your take is optional. Agents draft the rest.', see: 'ideas',
+      opts: [['Yes, four things', '', true], ['Ask for more up front', 'Say which fields in the note.'], ['Even less: title and a voice note', 'Fastest from your phone.']] }
+  ]}
+];
+const ALL = GROUPS.flatMap(g => g.qs);
+const KEY = 'mh-round2-answers';
+let A = {};
+try { A = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { A = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(A)); } catch (_) {} };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function render() {
+  let n = 0;
+  document.getElementById('groups').innerHTML = GROUPS.map(g => `<section class="group"><h2>${g.title} <small>${g.sub}</small></h2>${g.qs.map(q => {
+    n++; const a = A[q.id] || {}; const done = a.pick !== undefined;
+    return `<article class="q ${done ? 'done' : ''}" id="q-${q.id}">
+      <div class="q-head"><span class="qn">${n}</span><div style="display:grid;gap:6px;min-width:0"><h3>${esc(q.q)}</h3><p class="why">${esc(q.why)}</p>
+        ${q.conflict ? `<span class="conflict">${esc(q.conflict)}</span>` : ''}
+        ${q.see ? `<a class="see" href="${MOCK}#${q.see}" target="_blank" rel="noopener">See it in the mockup →</a>` : ''}</div></div>
+      <div class="opts" role="radiogroup" aria-label="${esc(q.q)}">${q.opts.map(([l, d, rec], i) => `
+        <label class="opt"><input type="radio" name="${q.id}" id="${q.id}-${i}" value="${i}" ${a.pick === i ? 'checked' : ''}>
+          <span><span class="opt-label">${esc(l)}${rec ? '<span class="rec">recommended</span>' : ''}</span>${d ? `<span class="opt-desc">${esc(d)}</span>` : ''}</span></label>`).join('')}
+      </div>
+      <textarea id="${q.id}-note" data-note="${q.id}" placeholder="Note (optional)" rows="1">${esc(a.note || '')}</textarea>
+    </article>`; }).join('')}</section>`).join('');
+  tally();
+}
+function tally() {
+  const done = ALL.filter(q => A[q.id] && A[q.id].pick !== undefined).length;
+  document.getElementById('tally').innerHTML = `${done} of ${ALL.length} answered<small>Your picks stay in this browser until you send them</small>`;
+  ALL.forEach(q => { const el = document.getElementById('q-' + q.id); el && el.classList.toggle('done', !!(A[q.id] && A[q.id].pick !== undefined)); });
+}
+document.addEventListener('change', e => {
+  if (e.target.type === 'radio') { (A[e.target.name] ||= {}).pick = +e.target.value; save(); tally(); }
+});
+document.addEventListener('input', e => {
+  const k = e.target.dataset && e.target.dataset.note; if (!k) return; (A[k] ||= {}).note = e.target.value; save();
+});
+document.getElementById('accept-all').addEventListener('click', () => {
+  ALL.forEach(q => { const i = q.opts.findIndex(o => o[2]); (A[q.id] ||= {}); if (A[q.id].pick === undefined) A[q.id].pick = i; });
+  save(); render(); toast('Recommendations picked for every open question. Change any you disagree with.');
+});
+function answersText() {
+  return 'Round 2 answers\n' + ALL.map((q, n) => {
+    const a = A[q.id] || {}; const o = a.pick !== undefined ? q.opts[a.pick][0] : '(no answer yet)';
+    return `${n + 1}. ${q.q}\n   → ${o}${a.note ? `\n   Note: ${a.note}` : ''}`;
+  }).join('\n');
+}
+let tt;
+function toast(m) { let t = document.getElementById('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 3000); }
+document.getElementById('copy').addEventListener('click', () => {
+  const txt = answersText();
+  const fallback = () => { const w = document.getElementById('copywrap'); w.hidden = false; const b = document.getElementById('copybox'); b.value = txt; b.focus(); b.select(); };
+  try { navigator.clipboard.writeText(txt).then(() => toast('Copied. Paste it into Claude Code.'), fallback); } catch (_) { fallback(); }
+});
+document.getElementById('copyclose').addEventListener('click', () => { document.getElementById('copywrap').hidden = true; });
+render();
+</script>

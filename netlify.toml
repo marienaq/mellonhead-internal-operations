@@ -1,0 +1,19 @@
+# Netlify: builds the app in app/ and serves it as a static site.
+# Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Netlify's environment variables (the publishable key
+# is safe in a browser; row-level security protects the data). The secret key never goes to Netlify.
+[build]
+  base = "app"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://zrxzmdtenpdvtszwqwjp.supabase.co wss://zrxzmdtenpdvtszwqwjp.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
