@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Data, Idea } from './types';
 import { seed } from './seed';
-import { CUR_WEEK, syncWeek, today } from './dates';
+import { CUR_WEEK, makingWeek, syncWeek, today } from './dates';
 import { loadWithStamps, makeSyncer, remoteEnabled } from './remote';
 
 const KEY = 'mh-content-planner-v1';
@@ -114,11 +114,19 @@ export async function startRemote() {
     const { data: loaded, stamps } = await loadWithStamps();
     const baseline = structuredClone(loaded); // what's in the database now
     data = autoPublish(loaded);
-    ui = { ...ui, week: CUR_WEEK }; // loadWithStamps settled the week from the film-day setting
+    ui = { ...ui, week: CUR_WEEK, filmDay: null }; // loadWithStamps settled the week from the film-day setting
     syncer = makeSyncer(baseline, stamps, {
-      onVersions: v => { data = { ...data, versions: v }; emit(); },
-      onError: msg => toast(`Couldn't save to Supabase: ${msg}. Reload to see what's saved.`),
-      onConflict: what => { refreshNote = `${what} also changed somewhere else. Showing both changes.`; void refresh(); },
+      // The saved list from the database, plus versions made here that aren't saved yet.
+      onVersions: v => { data = { ...data, versions: [...data.versions.filter(x => x.key && !syncer!.versionSaved(x.key)), ...v] }; emit(); },
+      onError: msg => toast(`Couldn't save to Supabase: ${msg}. Your change is kept here and will try again.`),
+      onConflict: clash => { refreshNote = clash ? `${clash}: your change replaced one made somewhere else.` : 'Updated with changes made somewhere else.'; void refresh(); },
+      onRenumberTake: (from, to) => {
+        data = structuredClone(data);
+        if (data.takes[from]) { data.takes[to] = data.takes[from]; delete data.takes[from]; }
+        data.ideas.forEach(i => { if (i.take === from) i.take = to; });
+        refreshNote = `Take #${from} was already used elsewhere, so yours is saved as #${to}.`;
+        emit(); save(data);
+      },
     });
     setMode('ready');
     syncer.queue(data); // saves anything autoPublish moved; a no-op otherwise
@@ -127,15 +135,18 @@ export async function startRemote() {
 
 let refreshNote = '';
 let refreshing = false;
-/** Pick up changes made elsewhere (phone, laptop, agents). Waits until nothing is waiting to save, so it
- * never replaces an edit that hasn't reached the database. Undo is dropped: it would restore stale rows. */
+/** Pick up changes made elsewhere (phone, laptop, agents). Only when nothing is waiting to save, failed to
+ * save, or changed while it loaded, so it never replaces an edit that hasn't reached the database.
+ * Undo is dropped: it would restore stale rows. A new week reloads the page instead. */
 export async function refresh(): Promise<void> {
   if (mode !== 'ready' || !syncer || refreshing) return;
-  if (!syncer.idle()) { setTimeout(() => { void refresh(); }, 600); return; }
+  if (!syncer.idle()) { setTimeout(() => { void refresh(); }, 1000); return; }
   refreshing = true;
+  const seq = syncer.seq();
   try {
-    const { data: fresh, stamps } = await loadWithStamps();
-    if (!syncer.idle()) return; // you changed something while it loaded; the next refresh picks it up
+    const { data: fresh, stamps } = await loadWithStamps(undefined, false);
+    if (!syncer.idle() || syncer.seq() !== seq) { setTimeout(() => { void refresh(); }, 1000); return; } // changed during the load: try again after it saves
+    if (makingWeek(today(), fresh.config.filmWeekday) !== CUR_WEEK) { location.reload(); return; }
     syncer.rebase(structuredClone(fresh), stamps);
     data = autoPublish(fresh);
     if (refreshNote) { const n = refreshNote; refreshNote = ''; ui = { ...ui, toast: null }; toast(n); }
@@ -143,6 +154,16 @@ export async function refresh(): Promise<void> {
     syncer.queue(data);
   } catch { /* offline or signed out: the next refresh tries again */ }
   finally { refreshing = false; }
+}
+
+/** Reload the page once nothing is waiting to save (a new week, or a film-day change that moves the week). */
+export function reloadWhenIdle() {
+  if (mode === 'local' || !syncer || syncer.idle()) { location.reload(); return; }
+  setTimeout(reloadWhenIdle, 500);
+}
+/** After the film day changes: if that moves which week is "this week", reload into it. */
+export function checkWeek() {
+  if (makingWeek(today(), data.config.filmWeekday) !== CUR_WEEK) reloadWhenIdle();
 }
 
 export function resetToSeed() {

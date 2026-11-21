@@ -36,7 +36,7 @@ export type Stamps = Record<Table, Record<string, string>>;
 export async function loadAll(c: SupabaseClient<any, any, any> = sb as unknown as SupabaseClient<any, any, any>): Promise<Data> {
   return (await loadWithStamps(c)).data;
 }
-export async function loadWithStamps(c: SupabaseClient<any, any, any> = sb as unknown as SupabaseClient<any, any, any>): Promise<{ data: Data; stamps: Stamps }> {
+export async function loadWithStamps(c: SupabaseClient<any, any, any> = sb as unknown as SupabaseClient<any, any, any>, settleWeek = true): Promise<{ data: Data; stamps: Stamps }> {
   const [ideas, takes, stories, weeks, versions, prefs] = await Promise.all([
     c.from('ideas').select('*').eq('archived', false).order('created_at'),
     c.from('takes').select('*').eq('archived', false),
@@ -48,7 +48,9 @@ export async function loadWithStamps(c: SupabaseClient<any, any, any> = sb as un
 
   const top = versions[0]; if (!top) throw new Error('No config found. Run the import first.');
   const snap = top.snapshot as Pick<Data, 'opts' | 'retired' | 'pillars' | 'config' | 'targets'>;
-  syncWeek(snap.config.filmWeekday); // before picking this week's run of show below
+  // Settle the week before picking this week's run of show below. Only on the first load: a later refresh
+  // that finds a new week reloads the page instead, so nothing from last week is saved into the new one.
+  if (settleWeek) syncWeek(snap.config.filmWeekday);
   const d: Data = {
     schema: 2,
     ideas: ideas.map(fromIdeaRow),
@@ -127,92 +129,218 @@ export function rowsOf(d: Data) {
 }
 
 /* ---------- Save: write only the fields that changed ----------
- * Each row is compared with what was last saved, column by column, and only the changed columns are
- * written. So two places changing different fields of the same idea both keep their change.
- * The write is guarded by the row's updated_at: if the row changed somewhere else since this tab
- * loaded it, the guard misses, the changed fields are written anyway (this tab's edit is the most
- * recent thing you did), and the app reloads afterwards so you see both. */
+ * Each row is compared with what was last saved, column by column, and only changed columns are written,
+ * so two places changing different fields of the same idea both keep their change.
+ *
+ * Writes are guarded by the row's updated_at. When the guard misses (the row changed elsewhere since this
+ * tab loaded it), the row is read back and merged:
+ *   - list-like columns merge: ticks (prep_done, general_prep_done) keep both sides' adds and removes;
+ *     notes keep everyone's entries.
+ *   - any other column this tab changed is written; if the other side changed that same column too,
+ *     that's a real clash and she's told her change replaced theirs.
+ * Then the app reloads so she sees the other side's changes.
+ *
+ * Progress is recorded row by row, so a save that fails halfway retries only what's left, and the
+ * syncer stays "dirty" (not idle) until it succeeds: a refresh never replaces unsaved edits. */
 const PK = { ideas: 'id', takes: 'n', stories: 'key', weeks: 'week', prefs: 'id' } as const;
 type Table = keyof typeof PK;
 const TABLES: Table[] = ['takes', 'stories', 'ideas', 'weeks', 'prefs']; // takes and stories first: ideas reference them
+const SET_COLS = new Set(['prep_done', 'general_prep_done']);
+const APPEND_COLS = new Set(['notes']);
 
-export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: {
+/** JSON with object keys sorted, so jsonb from Postgres (which reorders keys) compares equal to the same value here. */
+export function canon(v: unknown): string {
+  return JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, (x as Row)[k]])) : x));
+}
+const same = (a: unknown, b: unknown) => canon(a) === canon(b);
+
+/** Merge a list column: start from theirs, apply what this tab added and removed since its base. */
+function mergeList(col: string, base: unknown, mine: unknown, theirs: unknown): unknown[] {
+  const b = Array.isArray(base) ? base : [], m = Array.isArray(mine) ? mine : [], t = Array.isArray(theirs) ? theirs : [];
+  const key = (x: unknown) => canon(x);
+  const bk = new Set(b.map(key)), mk = new Set(m.map(key));
+  const added = m.filter(x => !bk.has(key(x)));
+  const removed = new Set(b.filter(x => !mk.has(key(x))).map(key));
+  const out = t.filter(x => !removed.has(key(x)));
+  const have = new Set(out.map(key));
+  for (const x of added) if (!have.has(key(x))) { out.push(x); have.add(key(x)); }
+  if (SET_COLS.has(col)) return (out as number[]).sort((x, y) => x - y);
+  return out;
+}
+
+export type SyncHooks = {
   onVersions: (v: Data['versions']) => void;
   onError: (msg: string) => void;
-  /** A row had changed elsewhere; the store should reload once it's safe. */
-  onConflict: (what: string) => void;
-}) {
+  /** Rows changed elsewhere were merged; reload to show them. `clash` names rows where her change replaced someone else's. */
+  onConflict: (clash: string | null) => void;
+  /** A new take's number was already used in the database (another device, an agent, or an archived take): it was saved as `to`. */
+  onRenumberTake: (from: number, to: number) => void;
+};
+
+export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHooks, client?: SupabaseClient<any, any, any>) {
+  const db = (client ?? sb) as SupabaseClient<any, any, any>; // a stand-in client in tests
   type Saved = { rows: Record<Table, Record<string, Row>>; config: string };
-  const snapshotOf = (d: Data): Saved => { const r = rowsOf(d); return { rows: { ideas: r.ideas, takes: r.takes, stories: r.stories, weeks: r.weeks, prefs: r.prefs }, config: JSON.stringify(r.snapshot) }; };
+  const snapshotOf = (d: Data): Saved => { const r = rowsOf(d); return { rows: { ideas: r.ideas, takes: r.takes, stories: r.stories, weeks: r.weeks, prefs: r.prefs }, config: canon(r.snapshot) }; };
   let saved = snapshotOf(initial);
   let stamps: Stamps = structuredClone(initialStamps);
   let savedMaxN = initial.versions[0]?.n ?? 0;
+  const savedVersionKeys = new Set<string>();
   let pending: Data | null = null;
+  let failed: Data | null = null; // the last data a failed save was trying to write; retried until it lands
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let running = Promise.resolve();
-  let inFlight = 0; // saves scheduled or running
+  let inFlight = 0;
+  let seq = 0; // bumps on every queued change: a refresh compares it before and after loading
 
-  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   const label = (t: Table, k: string, row: Row) => t === 'ideas' ? `"${row.title as string}"` : t === 'takes' ? `take ${k}` : t === 'stories' ? `story "${row.title as string}"` : t === 'weeks' ? `the week of ${k}` : 'your settings';
 
-  async function writeRow(t: Table, k: string, cols: Row, row: Row, conflicts: string[]) {
+  /** Write one row. Returns the row as it now stands in the database (as far as this tab's columns go). */
+  async function writeRow(t: Table, k: string, cols: Row, base: Row | undefined, row: Row, out: { merged: boolean; clashes: string[] }): Promise<Row> {
     const stamp = stamps[t][k];
-    if (!stamp) { // not in the database when this tab loaded: insert it (or merge with one another device just added)
-      const res = await sb!.from(t).upsert({ ...row }, { onConflict: PK[t] }).select('updated_at');
-      const out = must(res) as Row[]; stamps[t][k] = out[0]?.updated_at as string; return;
+    if (!stamp) {
+      // New here. Insert; if the key is already taken, it isn't new after all.
+      const ins = await db.from(t).insert({ ...row }).select('updated_at');
+      if (!ins.error) { stamps[t][k] = (ins.data as Row[])[0]?.updated_at as string; return row; }
+      if ((ins.error as { code?: string }).code !== '23505') throw new Error(ins.error.message);
+      if (t === 'takes') throw Object.assign(new Error('take number taken'), { takeTaken: true });
+      // Another device created the same key (for example this week's row): merge into theirs below, with no base.
     }
-    const guarded = must(await sb!.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[];
-    if (guarded.length) { stamps[t][k] = guarded[0].updated_at as string; return; }
-    // Changed elsewhere since this tab loaded it. Write this tab's fields anyway, then reload.
-    const forced = must(await sb!.from(t).update(cols).eq(PK[t], k).select('updated_at')) as Row[];
-    if (forced.length) stamps[t][k] = forced[0].updated_at as string;
-    conflicts.push(label(t, k, row));
+    const guarded = stamp ? must(await db.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[] : [];
+    if (guarded.length) { stamps[t][k] = guarded[0].updated_at as string; return row; }
+
+    // Changed elsewhere since this tab loaded it (or created elsewhere). Read it and merge.
+    const cur = must(await db.from(t).select('*').eq(PK[t], k).maybeSingle()) as Row | null;
+    if (!cur) throw new Error(`${label(t, k, row)} is missing from the database`);
+    const final: Row = {};
+    let clash = false;
+    for (const c of Object.keys(cols)) {
+      if (SET_COLS.has(c) || APPEND_COLS.has(c)) final[c] = mergeList(c, base?.[c], cols[c], cur[c]);
+      else {
+        final[c] = cols[c];
+        if (!same(cur[c], cols[c]) && (!base || !same(cur[c], base[c]))) clash = true; // they changed this column too
+      }
+    }
+    const changes = Object.keys(final).some(c => !same(final[c], cur[c]));
+    if (changes) {
+      const forced = must(await db.from(t).update(final).eq(PK[t], k).select('updated_at')) as Row[];
+      stamps[t][k] = forced[0]?.updated_at as string;
+    } else stamps[t][k] = cur.updated_at as string;
+    // Did the other side change anything this tab doesn't have? Then reload to show it.
+    out.merged = out.merged || Object.keys(cur).some(c => c !== 'updated_at' && c !== 'updated_by' && c !== 'created_at' && c in row && !same(cur[c], c in final ? final[c] : row[c]));
+    if (clash) out.clashes.push(label(t, k, row));
+    const merged: Row = { ...row };
+    for (const c of Object.keys(row)) if (c in cur) merged[c] = c in final ? final[c] : cur[c];
+    return merged;
+  }
+
+  async function nextFreeTake(): Promise<number> {
+    const top = must(await db.from('takes').select('n').order('n', { ascending: false }).limit(1)) as Row[]; // archived ones too
+    return ((top[0]?.n as number) ?? 0) + 1;
   }
 
   async function flush(d: Data) {
     const next = snapshotOf(d);
-    const conflicts: string[] = [];
+    const out = { merged: false, clashes: [] as string[] };
+    const takeMap = new Map<number, number>();
     for (const t of TABLES) {
-      for (const [k, row] of Object.entries(next.rows[t])) {
-        const before = saved.rows[t][k];
-        if (!before) { await writeRow(t, k, row, row, conflicts); continue; }
+      for (const [k, row0] of Object.entries(next.rows[t])) {
+        let row = row0;
+        if (t === 'ideas' && takeMap.has(row.take_n as number)) row = { ...row, take_n: takeMap.get(row.take_n as number) };
+        const base = saved.rows[t][k];
         const cols: Row = {};
-        for (const c of Object.keys(row)) if (!same(row[c], before[c])) cols[c] = row[c];
-        if (Object.keys(cols).length) await writeRow(t, k, cols, row, conflicts);
+        if (base) { for (const c of Object.keys(row)) if (!same(row[c], base[c])) cols[c] = row[c]; if (!Object.keys(cols).length) continue; }
+        try {
+          saved.rows[t][k] = await writeRow(t, k, base ? cols : row, base, row, out);
+        } catch (e) {
+          if (!(e as { takeTaken?: boolean }).takeTaken) throw e;
+          const to = await nextFreeTake();
+          const moved = { ...row, n: to };
+          must(await db.from('takes').insert(moved));
+          stamps.takes[String(to)] = new Date().toISOString(); // refreshed on the next load; only used as a guard
+          takeMap.set(Number(k), to);
+          saved.rows.takes[String(to)] = moved;
+          hooks.onRenumberTake(Number(k), to);
+        }
       }
       // Gone locally (an undo): archive, never delete. Weeks and prefs never disappear.
       if (t === 'ideas' || t === 'takes' || t === 'stories')
-        for (const k of Object.keys(saved.rows[t])) if (!(k in next.rows[t])) await writeRow(t, k, { archived: true }, saved.rows[t][k], conflicts);
+        for (const k of Object.keys(saved.rows[t])) if (!(k in next.rows[t]) && !(t === 'takes' && [...takeMap.values()].includes(Number(k)))) {
+          await writeRow(t, k, { archived: true }, saved.rows[t][k], { ...saved.rows[t][k], archived: true }, out);
+          delete saved.rows[t][k];
+        }
     }
-    if (next.config !== saved.config) {
-      // Every config change is a new version. Versions already saved can't change, so an undo is saved as a new version too.
-      const snap = JSON.parse(next.config);
-      let fresh = d.versions.filter(v => v.n > savedMaxN).reverse();
-      if (!fresh.length) fresh = [{ n: savedMaxN + 1, date: '', label: 'Undo: back to the earlier setting', changes: [] }];
-      const rows = fresh.map((v, k) => ({ n: savedMaxN + 1 + k, label: v.label, changes: v.changes, snapshot: snap }));
-      const ins = await sb!.from('config_versions').insert(rows);
-      if (ins.error && (ins.error as { code?: string }).code === '23505') conflicts.push('your config'); // another device saved a version with this number first
-      else must(ins);
-      if (!ins.error) savedMaxN += rows.length;
-      const all = must(await sb!.from('config_versions').select('n,label,changes,created_at').order('n', { ascending: false })) as Row[];
+    if (next.config !== saved.config) await saveConfig(d, JSON.parse(next.config), out);
+    if (out.clashes.length || out.merged) hooks.onConflict(out.clashes.length ? out.clashes.slice(0, 2).join(' and ') + (out.clashes.length > 2 ? ` and ${out.clashes.length - 2} more` : '') : null);
+  }
+
+  /** Every config change is a new, immutable version. If another place saved a version since this tab's
+   * last one, this tab's changes are applied on top of that version (top-level sections and each config
+   * field merge separately), then numbered after it. */
+  async function saveConfig(d: Data, mine: Row, out: { merged: boolean; clashes: string[] }) {
+    const base = JSON.parse(saved.config) as Row;
+    const pendingVersions = d.versions.filter(v => v.key && !savedVersionKeys.has(v.key)).reverse();
+    const fresh = pendingVersions.length ? pendingVersions : [{ n: 0, date: '', label: 'Undo: back to the earlier setting', changes: [] as Data['versions'][number]['changes'], key: undefined }];
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const top = must(await db.from('config_versions').select('n,snapshot').order('n', { ascending: false }).limit(1)) as Row[];
+      const topN = (top[0]?.n as number) ?? 0;
+      let snap = mine;
+      if (topN > savedMaxN && top[0]) {
+        // Someone else saved config: take theirs, then lay this tab's changed parts over it.
+        const theirs = top[0].snapshot as Row;
+        snap = structuredClone(theirs);
+        for (const sec of Object.keys(mine)) {
+          if (sec === 'config') {
+            const mc = mine.config as Row, bc = (base.config ?? {}) as Row, tc = ((theirs.config ?? {}) as Row);
+            const merged: Row = { ...tc };
+            for (const f of Object.keys(mc)) if (!same(mc[f], bc[f])) { merged[f] = mc[f]; if (!same(tc[f], bc[f]) && !same(tc[f], mc[f])) out.clashes.push(`config: ${f}`); }
+            snap.config = merged;
+          } else if (!same(mine[sec], base[sec])) {
+            snap[sec] = mine[sec];
+            if (!same(theirs[sec], base[sec]) && !same(theirs[sec], mine[sec])) out.clashes.push(`config: ${sec}`);
+          }
+        }
+        out.merged = true;
+      }
+      const rows = fresh.map((v, j) => ({ n: topN + 1 + j, label: v.label, changes: v.changes, snapshot: snap }));
+      const ins = await db.from('config_versions').insert(rows);
+      if (ins.error && (ins.error as { code?: string }).code === '23505') continue; // numbered at the same moment as another save: go again
+      if (ins.error) throw new Error(ins.error.message);
+      savedMaxN = topN + rows.length;
+      for (const v of fresh) if (v.key) savedVersionKeys.add(v.key);
+      saved.config = canon(snap);
+      const all = must(await db.from('config_versions').select('n,label,changes,created_at').order('n', { ascending: false })) as Row[];
       hooks.onVersions(all.map(v => ({ n: v.n as number, date: String(v.created_at).slice(0, 10), label: v.label as string, changes: v.changes as Data['versions'][number]['changes'] })));
+      return;
     }
-    saved = next;
-    if (conflicts.length) hooks.onConflict(conflicts.slice(0, 2).join(' and ') + (conflicts.length > 2 ? ` and ${conflicts.length - 2} more` : ''));
+    throw new Error('Config kept changing elsewhere while saving. Try again.');
+  }
+
+  function schedule(d: Data, wait: number) {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const d2 = pending ?? d; pending = null; inFlight++;
+      running = running.then(async () => {
+        try { await flush(d2); failed = null; } // a later save covers earlier ones: it compares with what was last saved
+        catch (e) {
+          failed = d2;
+          hooks.onError(e instanceof Error ? e.message : String(e));
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(() => { if (!pending && failed) { const f = failed; pending = f; schedule(f, 0); } }, 8000);
+        } finally { inFlight--; }
+      });
+    }, wait);
   }
 
   return {
     /** Save soon; rapid changes (typing, dragging) fold into one save. */
-    queue(d: Data) {
-      pending = d;
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const d2 = pending!; pending = null; inFlight++;
-        running = running.then(() => flush(d2)).catch(e => hooks.onError(e instanceof Error ? e.message : String(e))).finally(() => { inFlight--; });
-      }, 400);
-    },
-    /** Nothing waiting to save and nothing saving: safe to replace the data with a fresh load. */
-    idle: () => !pending && inFlight === 0,
+    queue(d: Data) { pending = d; seq++; schedule(d, 400); },
+    /** Nothing waiting, nothing saving, nothing failed: safe to replace the data with a fresh load. */
+    idle: () => !pending && inFlight === 0 && !failed,
+    /** Changes queued so far; a refresh that saw this change during its load must not apply. */
+    seq: () => seq,
+    /** Is this locally made config version saved yet? */
+    versionSaved: (key: string) => savedVersionKeys.has(key),
     /** After a fresh load: compare future changes with what's in the database now. */
     rebase(d: Data, s: Stamps) { saved = snapshotOf(d); stamps = structuredClone(s); savedMaxN = d.versions[0]?.n ?? 0; },
   };

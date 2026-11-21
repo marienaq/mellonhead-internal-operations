@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Data, OptKey } from '../lib/types';
 import { addDays, DEFAULT_FILM_WEEKDAY, filmDate, fmtDate, md, wmd } from '../lib/dates';
 import { addVersion, LOCK, TARGET_LABEL } from '../lib/logic';
-import { getUi, setUi, toast, update, useStore } from '../lib/store';
+import { checkWeek, getUi, setUi, toast, update, useStore } from '../lib/store';
 import { Band, Icon, ProtoBar, asset } from '../components/ui';
 
 const FILM_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -115,7 +115,7 @@ export function ConfigScreen() {
       <div className="card cfg"><div className="range-row"><span className="lab">You film on<small>This week that's {wmd(filmDate(d.config.filmWeekday))}</small></span>
         <span className="seg" role="group" aria-label="Film day">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((l, k) => {
           const n = k + 1, cur = d.config.filmWeekday ?? DEFAULT_FILM_WEEKDAY;
-          return <button key={l} aria-pressed={cur === n} onClick={() => { if (cur === n) return; update(dd => { dd.config.filmWeekday = n; addVersion(dd, 'Film day changed', { field: 'Film day', from: FILM_NAMES[cur - 1], to: FILM_NAMES[n - 1] }); }); }}>{l}</button>;
+          return <button key={l} aria-pressed={cur === n} onClick={() => { if (cur === n) return; update(dd => { dd.config.filmWeekday = n; addVersion(dd, 'Film day changed', { field: 'Film day', from: FILM_NAMES[cur - 1], to: FILM_NAMES[n - 1] }); }); checkWeek(); }}>{l}</button>;
         })}</span></div></div>
     </section>
 

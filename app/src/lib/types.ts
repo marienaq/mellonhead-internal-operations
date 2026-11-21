@@ -53,7 +53,7 @@ export interface Take { short: string; text: string; pillar: string; onCamera: s
 export interface Story { title: string; pillar: string; known: string; missing: string; onCamera: string }
 export interface Pillar { name: string; color: string; desc: string; carries: string }
 export type OptKey = 'type' | 'feeling' | 'style' | 'onCamera' | 'voice' | 'harmHelp' | 'cta' | 'hookFormat' | 'series' | 'safety';
-export interface Version { n: number; date: string; label: string; changes: { field: string; from: string; to: string }[] }
+export interface Version { n: number; date: string; label: string; changes: { field: string; from: string; to: string }[]; /** Set on versions made in this tab, until saved. */ key?: string }
 export interface Block { outfit: string; groups: { setup: string; ids: string[] }[] }
 
 export interface Data {

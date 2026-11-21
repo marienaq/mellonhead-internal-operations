@@ -186,6 +186,7 @@ export function FieldSheet({ id, k }: { id: string; k: string }) {
       {(k === 'series' || k === 'take') && <form className="opt" style={{ gap: 8 }} onSubmit={e => {
         e.preventDefault(); const v = newVal.trim(); if (!v) return; closeSheet();
         if (k === 'take') { let n = 0; update(dd => { n = addTake(dd, v, findIdea(dd, id)!.pillar); }); toast(`Saved to your takes bank as #${n}.`); setField(id, 'take', String(n)); }
+        else if (v.toLowerCase() === NO_SERIES) { toast('"none" is reserved for "not part of a series". Pick another name.'); return; }
         else { update(dd => { if (!dd.opts.series.includes(v)) { dd.opts.series.push(v); addVersion(dd, 'Series added', { field: 'Series', from: '', to: `Added "${v}"` }); } }); setField(id, 'series', v); }
       }}>
         <input type="text" value={newVal} onChange={e => setNewVal(e.target.value)} aria-label={k === 'take' ? 'New take' : 'New series name'} placeholder={k === 'take' ? 'Add a new take, in your words' : 'New series name'} style={{ border: 0, padding: 0 }} />

@@ -123,19 +123,19 @@ export function fixesFor(data: Data, d: Dim, w: string) {
 export function addVersion(d: Data, label: string, change: { field: string; from: string; to: string }) {
   // Every change is its own version: saved versions are history and never edited.
   const top = d.versions[0];
-  d.versions.unshift({ n: (top?.n ?? 0) + 1, date: today(), label, changes: [change] });
+  d.versions.unshift({ n: (top?.n ?? 0) + 1, date: today(), label, changes: [change], key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   return d.versions[0].n;
 }
 
 /* ---------- Takes ---------- */
 export function addTake(d: Data, text: string, pillar = '') {
-  const n = Math.max(...Object.keys(d.takes).map(Number)) + 1;
+  const n = nextTakeNumber(d); // the database renumbers it if another place took this number first
   const words = text.split(/\s+/);
   const short = words.slice(0, 6).join(' ').replace(/[.,;:!?]+$/, '').toLowerCase();
   d.takes[n] = { short: words.length > 6 ? short + '...' : short, text, pillar, onCamera: 'ready' };
   return n;
 }
-export const nextTakeNumber = (d: Data) => Math.max(...Object.keys(d.takes).map(Number)) + 1;
+export const nextTakeNumber = (d: Data) => Math.max(0, ...Object.keys(d.takes).map(Number)) + 1;
 
 /* ---------- Idea fields ---------- */
 export const REHOOK: Record<string, string> = { feeling: 'feeling', take: 'take', summary: 'angle', style: 'content style', onCamera: 'on-camera setup' };

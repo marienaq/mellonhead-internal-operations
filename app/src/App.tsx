@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { closeSheet, getData, getUi, refresh, setMode, startRemote, useStore } from './lib/store';
+import { closeSheet, getData, getUi, refresh, reloadWhenIdle, setMode, startRemote, useStore } from './lib/store';
 import { CUR_WEEK, makingWeek } from './lib/dates';
 import { getSession, remoteEnabled, sb } from './lib/remote';
 import { go, useRoute } from './lib/router';
@@ -59,7 +59,7 @@ export function App() {
   useEffect(() => {
     const onShow = () => {
       if (document.visibilityState !== 'visible') return;
-      if (makingWeek(undefined, getData().config.filmWeekday) !== CUR_WEEK) location.reload(); else void refresh();
+      if (makingWeek(undefined, getData().config.filmWeekday) !== CUR_WEEK) reloadWhenIdle(); else void refresh();
     };
     document.addEventListener('visibilitychange', onShow);
     const every = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60_000);
