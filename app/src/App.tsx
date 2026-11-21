@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { closeSheet, getData, getUi, setMode, startRemote, useStore } from './lib/store';
+import { closeSheet, getData, getUi, refresh, setMode, startRemote, useStore } from './lib/store';
 import { CUR_WEEK, makingWeek } from './lib/dates';
 import { getSession, remoteEnabled, sb } from './lib/remote';
 import { go, useRoute } from './lib/router';
@@ -54,11 +54,16 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => { closeSheet(); }, [r]);
-  // A tab left open past the weekly rollover: reload when it comes back, so the new week loads clean.
+  // Coming back to the tab: a new week means a clean reload; otherwise pick up changes made elsewhere.
+  // While it's open and visible, check for changes every minute.
   useEffect(() => {
-    const onShow = () => { if (document.visibilityState === 'visible' && makingWeek(undefined, getData().config.filmWeekday) !== CUR_WEEK) location.reload(); };
+    const onShow = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (makingWeek(undefined, getData().config.filmWeekday) !== CUR_WEEK) location.reload(); else void refresh();
+    };
     document.addEventListener('visibilitychange', onShow);
-    return () => document.removeEventListener('visibilitychange', onShow);
+    const every = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60_000);
+    return () => { document.removeEventListener('visibilitychange', onShow); clearInterval(every); };
   }, []);
   if (mode !== 'local' && mode !== 'ready') return <><SignIn /><Toast /></>;
 

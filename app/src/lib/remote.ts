@@ -30,7 +30,13 @@ type Row = Record<string, unknown>;
 const must = <T,>(r: { data: T | null; error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); return r.data as T; };
 
 /* ---------- Load ---------- */
+/** When each row was last changed in the database, by table and key. The syncer uses these to notice
+ * a row that changed somewhere else (the phone, the laptop, an agent through `mh content`). */
+export type Stamps = Record<Table, Record<string, string>>;
 export async function loadAll(c: SupabaseClient<any, any, any> = sb as unknown as SupabaseClient<any, any, any>): Promise<Data> {
+  return (await loadWithStamps(c)).data;
+}
+export async function loadWithStamps(c: SupabaseClient<any, any, any> = sb as unknown as SupabaseClient<any, any, any>): Promise<{ data: Data; stamps: Stamps }> {
   const [ideas, takes, stories, weeks, versions, prefs] = await Promise.all([
     c.from('ideas').select('*').eq('archived', false).order('created_at'),
     c.from('takes').select('*').eq('archived', false),
@@ -64,7 +70,13 @@ export async function loadAll(c: SupabaseClient<any, any, any> = sb as unknown a
       for (const n of (w.general_prep_done as number[]) || []) d.prepDone[`gen:${n}`] = true;
     }
   }
-  return d;
+  const stamps: Stamps = { ideas: {}, takes: {}, stories: {}, weeks: {}, prefs: {} };
+  for (const r of ideas) stamps.ideas[r.id as string] = r.updated_at as string;
+  for (const r of takes) stamps.takes[String(r.n)] = r.updated_at as string;
+  for (const r of stories) stamps.stories[r.key as string] = r.updated_at as string;
+  for (const r of weeks) stamps.weeks[r.week as string] = r.updated_at as string;
+  if (prefs) stamps.prefs['1'] = prefs.updated_at as string;
+  return { data: d, stamps };
 }
 
 function fromIdeaRow(r: Row): Idea {
@@ -114,47 +126,79 @@ export function rowsOf(d: Data) {
   return { ideas, takes, stories, weeks, prefs, snapshot };
 }
 
-/* ---------- Save: upsert what changed since the last save ---------- */
+/* ---------- Save: write only the fields that changed ----------
+ * Each row is compared with what was last saved, column by column, and only the changed columns are
+ * written. So two places changing different fields of the same idea both keep their change.
+ * The write is guarded by the row's updated_at: if the row changed somewhere else since this tab
+ * loaded it, the guard misses, the changed fields are written anyway (this tab's edit is the most
+ * recent thing you did), and the app reloads afterwards so you see both. */
 const PK = { ideas: 'id', takes: 'n', stories: 'key', weeks: 'week', prefs: 'id' } as const;
 type Table = keyof typeof PK;
+const TABLES: Table[] = ['takes', 'stories', 'ideas', 'weeks', 'prefs']; // takes and stories first: ideas reference them
 
-export function makeSyncer(initial: Data, onVersions: (v: Data['versions']) => void, onError: (msg: string) => void) {
+export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: {
+  onVersions: (v: Data['versions']) => void;
+  onError: (msg: string) => void;
+  /** A row had changed elsewhere; the store should reload once it's safe. */
+  onConflict: (what: string) => void;
+}) {
+  type Saved = { rows: Record<Table, Record<string, Row>>; config: string };
+  const snapshotOf = (d: Data): Saved => { const r = rowsOf(d); return { rows: { ideas: r.ideas, takes: r.takes, stories: r.stories, weeks: r.weeks, prefs: r.prefs }, config: JSON.stringify(r.snapshot) }; };
   let saved = snapshotOf(initial);
+  let stamps: Stamps = structuredClone(initialStamps);
   let savedMaxN = initial.versions[0]?.n ?? 0;
   let pending: Data | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running = Promise.resolve();
+  let inFlight = 0; // saves scheduled or running
 
-  function snapshotOf(d: Data) {
-    const r = rowsOf(d);
-    const s: Record<Table, Record<string, string>> = { ideas: {}, takes: {}, stories: {}, weeks: {}, prefs: {} };
-    (Object.keys(PK) as Table[]).forEach(t => { for (const [k, row] of Object.entries(r[t])) s[t][k] = JSON.stringify(row); });
-    return { rows: s, config: JSON.stringify(r.snapshot) };
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const label = (t: Table, k: string, row: Row) => t === 'ideas' ? `"${row.title as string}"` : t === 'takes' ? `take ${k}` : t === 'stories' ? `story "${row.title as string}"` : t === 'weeks' ? `the week of ${k}` : 'your settings';
+
+  async function writeRow(t: Table, k: string, cols: Row, row: Row, conflicts: string[]) {
+    const stamp = stamps[t][k];
+    if (!stamp) { // not in the database when this tab loaded: insert it (or merge with one another device just added)
+      const res = await sb!.from(t).upsert({ ...row }, { onConflict: PK[t] }).select('updated_at');
+      const out = must(res) as Row[]; stamps[t][k] = out[0]?.updated_at as string; return;
+    }
+    const guarded = must(await sb!.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[];
+    if (guarded.length) { stamps[t][k] = guarded[0].updated_at as string; return; }
+    // Changed elsewhere since this tab loaded it. Write this tab's fields anyway, then reload.
+    const forced = must(await sb!.from(t).update(cols).eq(PK[t], k).select('updated_at')) as Row[];
+    if (forced.length) stamps[t][k] = forced[0].updated_at as string;
+    conflicts.push(label(t, k, row));
   }
 
   async function flush(d: Data) {
-    const r = rowsOf(d);
     const next = snapshotOf(d);
-    // Tables in dependency order: takes and stories before ideas (ideas reference them).
-    for (const t of ['takes', 'stories', 'ideas', 'weeks', 'prefs'] as Table[]) {
-      const changed: Row[] = [];
-      for (const [k, json] of Object.entries(next.rows[t])) if (saved.rows[t][k] !== json) changed.push(r[t][k]);
+    const conflicts: string[] = [];
+    for (const t of TABLES) {
+      for (const [k, row] of Object.entries(next.rows[t])) {
+        const before = saved.rows[t][k];
+        if (!before) { await writeRow(t, k, row, row, conflicts); continue; }
+        const cols: Row = {};
+        for (const c of Object.keys(row)) if (!same(row[c], before[c])) cols[c] = row[c];
+        if (Object.keys(cols).length) await writeRow(t, k, cols, row, conflicts);
+      }
       // Gone locally (an undo): archive, never delete. Weeks and prefs never disappear.
       if (t === 'ideas' || t === 'takes' || t === 'stories')
-        for (const k of Object.keys(saved.rows[t])) if (!(k in next.rows[t])) changed.push({ ...JSON.parse(saved.rows[t][k]), archived: true });
-      if (changed.length) must(await sb!.from(t).upsert(changed, { onConflict: PK[t] }));
+        for (const k of Object.keys(saved.rows[t])) if (!(k in next.rows[t])) await writeRow(t, k, { archived: true }, saved.rows[t][k], conflicts);
     }
     if (next.config !== saved.config) {
       // Every config change is a new version. Versions already saved can't change, so an undo is saved as a new version too.
+      const snap = JSON.parse(next.config);
       let fresh = d.versions.filter(v => v.n > savedMaxN).reverse();
       if (!fresh.length) fresh = [{ n: savedMaxN + 1, date: '', label: 'Undo: back to the earlier setting', changes: [] }];
-      const rows = fresh.map((v, k) => ({ n: savedMaxN + 1 + k, label: v.label, changes: v.changes, snapshot: r.snapshot }));
-      must(await sb!.from('config_versions').insert(rows));
-      savedMaxN += rows.length;
+      const rows = fresh.map((v, k) => ({ n: savedMaxN + 1 + k, label: v.label, changes: v.changes, snapshot: snap }));
+      const ins = await sb!.from('config_versions').insert(rows);
+      if (ins.error && (ins.error as { code?: string }).code === '23505') conflicts.push('your config'); // another device saved a version with this number first
+      else must(ins);
+      if (!ins.error) savedMaxN += rows.length;
       const all = must(await sb!.from('config_versions').select('n,label,changes,created_at').order('n', { ascending: false })) as Row[];
-      onVersions(all.map(v => ({ n: v.n as number, date: String(v.created_at).slice(0, 10), label: v.label as string, changes: v.changes as Data['versions'][number]['changes'] })));
+      hooks.onVersions(all.map(v => ({ n: v.n as number, date: String(v.created_at).slice(0, 10), label: v.label as string, changes: v.changes as Data['versions'][number]['changes'] })));
     }
     saved = next;
+    if (conflicts.length) hooks.onConflict(conflicts.slice(0, 2).join(' and ') + (conflicts.length > 2 ? ` and ${conflicts.length - 2} more` : ''));
   }
 
   return {
@@ -163,9 +207,13 @@ export function makeSyncer(initial: Data, onVersions: (v: Data['versions']) => v
       pending = d;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        const d2 = pending!; pending = null;
-        running = running.then(() => flush(d2)).catch(e => onError(e instanceof Error ? e.message : String(e)));
+        const d2 = pending!; pending = null; inFlight++;
+        running = running.then(() => flush(d2)).catch(e => hooks.onError(e instanceof Error ? e.message : String(e))).finally(() => { inFlight--; });
       }, 400);
     },
+    /** Nothing waiting to save and nothing saving: safe to replace the data with a fresh load. */
+    idle: () => !pending && inFlight === 0,
+    /** After a fresh load: compare future changes with what's in the database now. */
+    rebase(d: Data, s: Stamps) { saved = snapshotOf(d); stamps = structuredClone(s); savedMaxN = d.versions[0]?.n ?? 0; },
   };
 }

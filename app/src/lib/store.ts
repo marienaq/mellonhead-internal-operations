@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import type { Data, Idea } from './types';
 import { seed } from './seed';
 import { CUR_WEEK, syncWeek, today } from './dates';
-import { loadAll, makeSyncer, remoteEnabled } from './remote';
+import { loadWithStamps, makeSyncer, remoteEnabled } from './remote';
 
 const KEY = 'mh-content-planner-v1';
 
@@ -111,16 +111,38 @@ export function setMode(m: Mode, err = '') { mode = m; modeError = err; emit(); 
 export async function startRemote() {
   setMode('loading');
   try {
-    const loaded = await loadAll();
+    const { data: loaded, stamps } = await loadWithStamps();
     const baseline = structuredClone(loaded); // what's in the database now
     data = autoPublish(loaded);
-    ui = { ...ui, week: CUR_WEEK }; // loadAll settled the week from the film-day setting
-    syncer = makeSyncer(baseline,
-      v => { data = { ...data, versions: v }; emit(); },
-      msg => toast(`Couldn't save to Supabase: ${msg}. Reload to see what's saved.`));
+    ui = { ...ui, week: CUR_WEEK }; // loadWithStamps settled the week from the film-day setting
+    syncer = makeSyncer(baseline, stamps, {
+      onVersions: v => { data = { ...data, versions: v }; emit(); },
+      onError: msg => toast(`Couldn't save to Supabase: ${msg}. Reload to see what's saved.`),
+      onConflict: what => { refreshNote = `${what} also changed somewhere else. Showing both changes.`; void refresh(); },
+    });
     setMode('ready');
     syncer.queue(data); // saves anything autoPublish moved; a no-op otherwise
   } catch (e) { setMode('error', e instanceof Error ? e.message : String(e)); }
+}
+
+let refreshNote = '';
+let refreshing = false;
+/** Pick up changes made elsewhere (phone, laptop, agents). Waits until nothing is waiting to save, so it
+ * never replaces an edit that hasn't reached the database. Undo is dropped: it would restore stale rows. */
+export async function refresh(): Promise<void> {
+  if (mode !== 'ready' || !syncer || refreshing) return;
+  if (!syncer.idle()) { setTimeout(() => { void refresh(); }, 600); return; }
+  refreshing = true;
+  try {
+    const { data: fresh, stamps } = await loadWithStamps();
+    if (!syncer.idle()) return; // you changed something while it loaded; the next refresh picks it up
+    syncer.rebase(structuredClone(fresh), stamps);
+    data = autoPublish(fresh);
+    if (refreshNote) { const n = refreshNote; refreshNote = ''; ui = { ...ui, toast: null }; toast(n); }
+    else { if (ui.toast?.undo) ui = { ...ui, toast: null }; emit(); }
+    syncer.queue(data);
+  } catch { /* offline or signed out: the next refresh tries again */ }
+  finally { refreshing = false; }
 }
 
 export function resetToSeed() {
