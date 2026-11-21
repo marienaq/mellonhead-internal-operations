@@ -83,9 +83,9 @@ export function computeMix(d: Data, w: string): Dim[] {
     { key: 'style.series', label: 'Running series episodes', match: (i: Idea) => inSeries(i), count: n(i => inSeries(i)), scale: 7 }] });
   const nonTalk = [...new Set(c.filter(i => i.onCamera && i.onCamera !== 'talking head').map(i => i.onCamera))];
   dims.push({ id: 'camera', title: 'On camera', win: 7, note: nonTalk.length ? 'Also this week: ' + nonTalk.join(', ') : '', rows: [{ key: 'camera.talking', label: 'Talking head', match: i => i.onCamera === 'talking head', count: n(i => i.onCamera === 'talking head'), scale: 7 }] });
-  const harm = n(i => i.harmHelp === 'harm'), help = n(i => i.harmHelp === 'help'), neu = n(i => i.harmHelp === 'neutral');
+  const harm = n(i => i.harmHelp === 'harm'), help = n(i => i.harmHelp === 'help'), neu = n(i => i.harmHelp === 'neutral'), both = n(i => i.harmHelp === 'both');
   const big = harm >= help ? 'harm' : 'help';
-  dims.push({ id: 'hh', title: 'Harm or help', win: 7, note: `Harm ${harm} · Help ${help} · Neutral ${neu} (doesn't count)`, rows: [{ key: 'hh.gap', label: 'Gap between harm and help', match: i => i.harmHelp === big, matchLabel: big, count: Math.abs(harm - help), scale: 5 }] });
+  dims.push({ id: 'hh', title: 'Harm or help', win: 7, note: `Harm ${harm} · Help ${help} · Neutral ${neu}${both ? ` · Both ${both}` : ''} (neutral and both don't count)`, rows: [{ key: 'hh.gap', label: 'Gap between harm and help', match: i => i.harmHelp === big, matchLabel: big, count: Math.abs(harm - help), scale: 5 }] });
   const withCta = (i: Idea) => !!i.cta && i.cta !== 'none';
   dims.push({ id: 'cta', title: 'Call to action', win: 7, note: c.filter(withCta).map(i => i.cta).join(', '), rows: [{ key: 'cta.with', label: 'Videos with one', match: withCta, count: n(withCta), scale: 7 }] });
   const used = d.opts.feeling.concat(d.retired.feeling).filter(f => n(i => i.feeling === f) > 0);
