@@ -255,5 +255,16 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   check('config keys merge: both list changes kept', !last.opts.feeling.includes(f) && last.opts.series.includes('New series'), JSON.stringify([last.opts.feeling, last.opts.series]));
 }
 
+{ // 15. (review 3) An agent retires a series while she adds one: the retired one stays out of the active list.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  const y = base.opts.series[0];
+  agent.change(x => { x.opts.series = x.opts.series.filter(v => v !== y); x.retired.series = [...(x.retired.series || []), y]; x.versions.unshift({ n: 99, date: '', label: 'retire', changes: [], key: 'r2' }); });
+  await settle(agent);
+  a.change(x => { x.opts.series = [...x.opts.series, 'NEWX']; x.versions.unshift({ n: 99, date: '', label: 'add', changes: [], key: 'a2' }); });
+  await settle(a);
+  const last = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot;
+  check('series retire + add: consistent', !last.opts.series.includes(y) && last.retired.series.includes(y) && last.opts.series.includes('NEWX'), JSON.stringify([last.opts.series, last.retired.series]));
+}
+
 console.log(failures ? `\n${failures} failed` : '\nAll passed');
 process.exit(failures ? 1 : 0);

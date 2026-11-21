@@ -119,9 +119,18 @@ export async function startRemote() {
       // The saved list from the database, plus versions made here that aren't saved yet.
       onVersions: v => { data = { ...data, versions: [...data.versions.filter(x => x.key && !syncer!.versionSaved(x.key)), ...v] }; emit(); },
       onError: msg => toast(`Couldn't save to Supabase: ${msg}. Your change is kept here and will try again.`),
-      onConflict: clash => { refreshNote = clash ? `${clash}: your change replaced one made somewhere else.` : 'Updated with changes made somewhere else.'; void refresh(); },
+      onConflict: clash => {
+        if (clash) refreshNote = `${clash}: your change replaced one made somewhere else.`;
+        else if (!refreshNote) refreshNote = 'Updated with changes made somewhere else.'; // never hide a clash message
+        void refresh();
+      },
       onRenumberTake: (from, to) => {
         data = structuredClone(data);
+        if (data.takes[to]) { // she added another take with this number while the save ran: move hers up first
+          const free = Math.max(to, ...Object.keys(data.takes).map(Number)) + 1;
+          data.takes[free] = data.takes[to];
+          data.ideas.forEach(i => { if (i.take === to) i.take = free; });
+        }
         if (data.takes[from]) { data.takes[to] = data.takes[from]; delete data.takes[from]; }
         data.ideas.forEach(i => { if (i.take === from) i.take = to; });
         refreshNote = `Take #${from} was already used elsewhere, so yours is saved as #${to}.`;

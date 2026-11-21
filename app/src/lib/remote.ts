@@ -215,7 +215,9 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     const guarded = stamp && !hasList && !unseen.has(`${t}:${k}`) ? must(await db.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[] : [];
     if (guarded.length) { stamps[t][k] = guarded[0].updated_at as string; return row; }
 
-    // Changed elsewhere since this tab loaded it (or created elsewhere). Read it and merge.
+    // Changed elsewhere since this tab loaded it (or created elsewhere), or a list column. Read it and merge;
+    // the write is guarded by the stamp just read, and goes again if another write slipped in between.
+    for (let attempt = 0; ; attempt++) {
     const cur = must(await db.from(t).select('*').eq(PK[t], k).maybeSingle()) as Row | null;
     if (!cur) throw new Error(`${label(t, k, row)} is missing from the database`);
     const final: Row = {};
@@ -229,8 +231,9 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     }
     const changes = Object.keys(final).some(c => !same(final[c], cur[c]));
     if (changes) {
-      const forced = must(await db.from(t).update(final).eq(PK[t], k).select('updated_at')) as Row[];
-      stamps[t][k] = forced[0]?.updated_at as string;
+      const forced = must(await db.from(t).update(final).eq(PK[t], k).eq('updated_at', cur.updated_at).select('updated_at')) as Row[];
+      if (!forced.length) { if (attempt < 4) continue; throw new Error(`${label(t, k, row)} kept changing while saving. Try again.`); }
+      stamps[t][k] = forced[0].updated_at as string;
     } else stamps[t][k] = cur.updated_at as string;
     // Did the other side change anything this tab doesn't have? Then reload to show it.
     out.merged = out.merged || Object.keys(cur).some(c => c !== 'updated_at' && c !== 'updated_by' && c !== 'created_at' && c in row && !same(cur[c], c in final ? final[c] : row[c]));
@@ -240,6 +243,7 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     // (list columns merge again against the database), and an undo diffs only her own columns.
     // The refresh that follows brings the other side's values onto her screen.
     return row;
+    }
   }
 
   /** Free in the database (archived takes too) and not used by any take this tab has. */
@@ -302,6 +306,8 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
           const m = (mine[sec] ?? {}) as Row, bs = (base[sec] ?? {}) as Row, th = (theirs[sec] ?? {}) as Row;
           const merged: Row = { ...th };
           for (const f of new Set([...Object.keys(m), ...Object.keys(bs)])) if (!same(m[f], bs[f])) {
+            // Option lists merge item by item (her adds and removes over theirs); other values are taken whole.
+            if ((sec === 'opts' || sec === 'retired') && Array.isArray(m[f])) { merged[f] = mergeList(f, bs[f], m[f], th[f]); continue; }
             if (f in m) merged[f] = m[f]; else delete merged[f];
             if (someoneElse && !same(th[f], bs[f]) && !same(th[f], m[f])) out.clashes.push(`config: ${f}`);
           }
