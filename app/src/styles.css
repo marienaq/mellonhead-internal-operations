@@ -350,6 +350,10 @@ main {
 .opt { min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); text-align: left; padding: 8px 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .opt[aria-pressed="true"] { border: 2px solid var(--forest); background: #F4F7F1; }
 .opt small { font-weight: 400; color: var(--ink-3); }
+/* Options with a description under the name: takes in full, types with what they mean. */
+.opt.col { padding: 10px 14px; }
+.opt.col > span { display: grid; gap: 3px; }
+.opt.col small { font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
 textarea, input[type="text"], input[type="url"], input[type="email"], input[type="date"], select { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); font-size: 15px; line-height: 1.45; }
 textarea { min-height: 100px; resize: vertical; }
 .sheet-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap; }

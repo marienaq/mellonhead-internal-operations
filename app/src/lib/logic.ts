@@ -35,6 +35,18 @@ export const gapsOf = (i: Idea) => i.beats.map((b, n) => ({ n: n + 1, gap: b.gap
 export const waitsOf = (i: Idea) => i.beats.map((b, n) => ({ n: n + 1, who: b.waitingOn })).filter(g => g.who);
 
 /* ---------- Mix (brief §6.3) ---------- */
+/** An idea that's decided not to be in a series. series can't be null in the database ('' means not decided yet). */
+export const NO_SERIES = 'none';
+export const inSeries = (i: Idea) => !!i.series && i.series !== NO_SERIES;
+
+/** Jessi Jean's 3-2-1 weekly mix (foundation.md). A week aims for 3 authority, 2 storyline, 1 personality, 1 follow the signal. */
+export const TYPE_HELP: Record<string, string> = {
+  authority: 'You teach or advise: what to do, how it works, what you would do. Builds trust in what you know.',
+  storyline: 'Part of an ongoing story people follow: a series, what you are building, what happened next. Brings people back.',
+  personality: 'Shows who you are: opinions, humor, life outside work. Makes people like you, not just learn from you.',
+  'follow the signal': 'More of what already landed: a follow-up or new angle on a video that got comments, saves or shares.',
+};
+
 export const LOCK: Record<string, 'min' | 'max'> = { 'style.each': 'min', 'style.others': 'min', 'style.series': 'max', 'hh.gap': 'min', 'cta.with': 'min', 'feeling.each': 'min' };
 export const TARGET_LABEL: Record<string, string> = {
   'type.authority': 'Authority', 'type.storyline': 'Storyline', 'type.personality': 'Personality', 'type.follow the signal': 'Follow the signal',
@@ -68,7 +80,7 @@ export function computeMix(d: Data, w: string): Dim[] {
   dims.push({ id: 'style', title: 'Content style', win: 7, rows: [
     ...styles.map(s => ({ key: 'style.each', label: cap(s), match: (i: Idea) => i.style === s, count: n(i => i.style === s), scale: 5 })),
     { key: 'style.others', label: "Other people's stories", sub: 'AI-ITA and workplace advice', match: others, count: n(others), scale: 7 },
-    { key: 'style.series', label: 'Running series episodes', match: (i: Idea) => !!i.series, count: n(i => !!i.series), scale: 7 }] });
+    { key: 'style.series', label: 'Running series episodes', match: (i: Idea) => inSeries(i), count: n(i => inSeries(i)), scale: 7 }] });
   const nonTalk = [...new Set(c.filter(i => i.onCamera && i.onCamera !== 'talking head').map(i => i.onCamera))];
   dims.push({ id: 'camera', title: 'On camera', win: 7, note: nonTalk.length ? 'Also this week: ' + nonTalk.join(', ') : '', rows: [{ key: 'camera.talking', label: 'Talking head', match: i => i.onCamera === 'talking head', count: n(i => i.onCamera === 'talking head'), scale: 7 }] });
   const harm = n(i => i.harmHelp === 'harm'), help = n(i => i.harmHelp === 'help'), neu = n(i => i.harmHelp === 'neutral');
@@ -143,7 +155,7 @@ export function setField(id: string, k: string, v: string) {
     if (k.startsWith('look.')) { const lk = k.slice(5) as keyof Idea['look']; from = i.look[lk]; i.look[lk] = v; }
     else if (k === 'take') { from = i.take; i.take = v ? Number(v) : null; }
     else if (k === 'story') { from = i.story; i.story = v || null; }
-    else if (k === 'series') { from = i.series; i.series = v; i.ep = v ? (from === v ? i.ep : nextEp(d, v, i)) : null; }
+    else if (k === 'series') { from = i.series; i.series = v; i.ep = v && v !== NO_SERIES ? (from === v ? i.ep : nextEp(d, v, i)) : null; }
     else { from = (i as unknown as Record<string, unknown>)[k]; (i as unknown as Record<string, unknown>)[k] = v; }
     const wasDrafted = i.drafted.includes(k);
     i.drafted = i.drafted.filter(x => x !== k);

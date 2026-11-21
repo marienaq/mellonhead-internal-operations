@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Data, Gut, Idea, OptKey } from '../lib/types';
 import { addDays, CUR_WEEK, md, today, wmd } from '../lib/dates';
-import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, readiness, REHOOK, setField, waitsOf } from '../lib/logic';
+import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
 import { closeSheet, findIdea, getData, openSheet, toast, update, useStore } from '../lib/store';
 import { go } from '../lib/router';
 import { Icon, NeedsTag, PEG, ProtoBar, Sheet, WaitingTag, asset } from '../components/ui';
@@ -24,7 +24,7 @@ function Pitch({ d, i }: { d: Data; i: Idea }) {
   return <p className="pitch">
     {i.pillar ? article : 'A'} <Bp i={i} k="pillar" /> <Bp i={i} k="type" /> video in <Bp i={i} k="style" /> style, <Bp i={i} k="onCamera" />, voiced by <Bp i={i} k="voice" />.{' '}
     It should leave Alex feeling <Bp i={i} k="feeling" />, shows AI as <Bp i={i} k="harmHelp" />, argues <Bp i={i} k="take" text={takeTxt} /> and ends with <Bp i={i} k="cta" text={CTA_PHRASE[i.cta] || i.cta} />.{' '}
-    {i.series ? <>It's episode {i.ep || '?'} of <Bp i={i} k="series" /></> : <>It's <Bp i={i} k="series" text="not part of a series" /></>}
+    {inSeries(i) ? <>It's episode {i.ep || '?'} of <Bp i={i} k="series" /></> : <>It's <Bp i={i} k="series" text="not part of a series" /></>}
     {i.story ? <>, built on the story <Bp i={i} k="story" text={d.stories[i.story]?.title} /></> : <>, with <Bp i={i} k="story" text="no story from the bank" /></>}. Client safety: <Bp i={i} k="safety" />.
   </p>;
 }
@@ -165,22 +165,24 @@ export function FieldSheet({ id, k }: { id: string; k: string }) {
   if (k === 'pillar') opts = d.pillars.map(p => p.name);
   else if (k === 'take') opts = Object.keys(d.takes);
   else if (k === 'story') opts = ['', ...Object.keys(d.stories)];
-  else if (k === 'series') opts = ['', ...d.opts.series];
+  else if (k === 'series') opts = [NO_SERIES, ...d.opts.series];
   else opts = d.opts[k as OptKey];
   const curVal = String((i as unknown as Record<string, unknown>)[k] ?? '');
   // A retired value stays on this idea until she picks another; it isn't offered to anything new.
-  if (curVal && !opts.includes(curVal) && k !== 'take' && k !== 'story') opts = [curVal, ...opts];
+  if (curVal && !opts.includes(curVal) && k !== 'take' && k !== 'story' && !(k === 'series' && curVal === NO_SERIES)) opts = [curVal, ...opts];
   const drafted = i.drafted.includes(k);
-  const label = (o: string) => k === 'take' ? <>#{o} <small>{d.takes[+o].text}</small></>
+  const label = (o: string) => k === 'take' ? <><span>#{o} {d.takes[+o].short}</span><small>{d.takes[+o].text}</small></>
+    : k === 'type' && TYPE_HELP[o] ? <><span>{o}</span><small>{TYPE_HELP[o]}</small></>
     : k === 'story' ? (o ? <>{d.stories[o].title} <small>{d.stories[o].onCamera}</small></> : 'No story')
-    : k === 'series' ? (o ? <>{o} <small>next: episode {nextEp(d, o, i)}</small></> : 'Not part of a series')
+    : k === 'series' ? (o !== NO_SERIES ? <>{o} <small>next: episode {nextEp(d, o, i)}</small></> : 'Not part of a series')
     : <>{o}{isRetired(d, k, o) ? <small> (retired)</small> : null}</>;
   return <Sheet>
     <h3>{LABEL[k]}</h3>
     <p className="hint">{REHOOK[k] ? 'Changing this sets re-hook needed.' : 'Changing this keeps the hooks as they are.'}{drafted ? ' Drafted by an agent: confirm it or pick another.' : ''}{k === 'take' || k === 'story' ? ' From your bank.' : ''}</p>
     {curVal && isRetired(d, k, curVal) && <p className="hint">"{curVal}" is retired. It stays on this idea until you pick another.</p>}
     <div className="optlist">
-      {opts.map(o => <button key={o || 'none'} className="opt" aria-pressed={curVal === o} onClick={() => { closeSheet(); setField(id, k, o); }}><span>{label(o)}</span></button>)}
+      {k === 'type' && <p className="muted small">A week aims for 3 authority, 2 storyline, 1 personality and 1 follow the signal.</p>}
+      {opts.map(o => <button key={o || 'none'} className={`opt${k === 'take' || (k === 'type' && TYPE_HELP[o]) ? ' col' : ''}`} aria-pressed={curVal === o} onClick={() => { closeSheet(); setField(id, k, o); }}><span>{label(o)}</span></button>)}
       {(k === 'series' || k === 'take') && <form className="opt" style={{ gap: 8 }} onSubmit={e => {
         e.preventDefault(); const v = newVal.trim(); if (!v) return; closeSheet();
         if (k === 'take') { let n = 0; update(dd => { n = addTake(dd, v, findIdea(dd, id)!.pillar); }); toast(`Saved to your takes bank as #${n}.`); setField(id, 'take', String(n)); }
