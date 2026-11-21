@@ -185,6 +185,9 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
   let stamps: Stamps = structuredClone(initialStamps);
   let savedMaxN = initial.versions[0]?.n ?? 0;
   const savedVersionKeys = new Set<string>();
+  /** Rows merged with another place's changes that her screen doesn't show yet (until the refresh). Every
+   * write to them reads and merges first, so a later edit can't silently overwrite the other side. */
+  const unseen = new Set<string>();
   let pending: Data | null = null;
   let failed: Data | null = null; // the last data a failed save was trying to write; retried until it lands
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -206,7 +209,10 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
       if (t === 'takes') throw Object.assign(new Error('take number taken'), { takeTaken: true });
       // Another device created the same key (for example this week's row): merge into theirs below, with no base.
     }
-    const guarded = stamp ? must(await db.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[] : [];
+    // List columns (ticks, notes) always merge with what's in the database now, so another place's
+    // items survive even when this tab's copy of the row is current.
+    const hasList = Object.keys(cols).some(c => SET_COLS.has(c) || APPEND_COLS.has(c));
+    const guarded = stamp && !hasList && !unseen.has(`${t}:${k}`) ? must(await db.from(t).update(cols).eq(PK[t], k).eq('updated_at', stamp).select('updated_at')) as Row[] : [];
     if (guarded.length) { stamps[t][k] = guarded[0].updated_at as string; return row; }
 
     // Changed elsewhere since this tab loaded it (or created elsewhere). Read it and merge.
@@ -229,14 +235,17 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     // Did the other side change anything this tab doesn't have? Then reload to show it.
     out.merged = out.merged || Object.keys(cur).some(c => c !== 'updated_at' && c !== 'updated_by' && c !== 'created_at' && c in row && !same(cur[c], c in final ? final[c] : row[c]));
     if (clash) out.clashes.push(label(t, k, row));
-    const merged: Row = { ...row };
-    for (const c of Object.keys(row)) if (c in cur) merged[c] = c in final ? final[c] : cur[c];
-    return merged;
+    if (Object.keys(cur).some(c => c in row && c !== 'updated_at' && !same(cur[c], c in final ? final[c] : row[c]))) unseen.add(`${t}:${k}`);
+    // Record what THIS tab has, not the merged row: the next save then writes only her next changes
+    // (list columns merge again against the database), and an undo diffs only her own columns.
+    // The refresh that follows brings the other side's values onto her screen.
+    return row;
   }
 
-  async function nextFreeTake(): Promise<number> {
-    const top = must(await db.from('takes').select('n').order('n', { ascending: false }).limit(1)) as Row[]; // archived ones too
-    return ((top[0]?.n as number) ?? 0) + 1;
+  /** Free in the database (archived takes too) and not used by any take this tab has. */
+  async function nextFreeTake(local: Iterable<string>): Promise<number> {
+    const top = must(await db.from('takes').select('n').order('n', { ascending: false }).limit(1)) as Row[];
+    return Math.max((top[0]?.n as number) ?? 0, ...[...local].map(Number), ...Object.keys(saved.rows.takes).map(Number)) + 1;
   }
 
   async function flush(d: Data) {
@@ -254,10 +263,10 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
           saved.rows[t][k] = await writeRow(t, k, base ? cols : row, base, row, out);
         } catch (e) {
           if (!(e as { takeTaken?: boolean }).takeTaken) throw e;
-          const to = await nextFreeTake();
+          const to = await nextFreeTake([...Object.keys(next.rows.takes), ...takeMap.values()].map(String));
           const moved = { ...row, n: to };
-          must(await db.from('takes').insert(moved));
-          stamps.takes[String(to)] = new Date().toISOString(); // refreshed on the next load; only used as a guard
+          const ins = must(await db.from('takes').insert(moved).select('updated_at')) as Row[];
+          stamps.takes[String(to)] = ins[0]?.updated_at as string;
           takeMap.set(Number(k), to);
           saved.rows.takes[String(to)] = moved;
           hooks.onRenumberTake(Number(k), to);
@@ -274,41 +283,49 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     if (out.clashes.length || out.merged) hooks.onConflict(out.clashes.length ? out.clashes.slice(0, 2).join(' and ') + (out.clashes.length > 2 ? ` and ${out.clashes.length - 2} more` : '') : null);
   }
 
-  /** Every config change is a new, immutable version. If another place saved a version since this tab's
-   * last one, this tab's changes are applied on top of that version (top-level sections and each config
-   * field merge separately), then numbered after it. */
+  /** Every config change is a new, immutable version. Her changes since her last save are laid over the
+   * latest version in the database (whoever saved it), key by key inside each section, and numbered after it.
+   * So a change saved elsewhere is never reverted by her next save. */
   async function saveConfig(d: Data, mine: Row, out: { merged: boolean; clashes: string[] }) {
     const base = JSON.parse(saved.config) as Row;
     const pendingVersions = d.versions.filter(v => v.key && !savedVersionKeys.has(v.key)).reverse();
-    const fresh = pendingVersions.length ? pendingVersions : [{ n: 0, date: '', label: 'Undo: back to the earlier setting', changes: [] as Data['versions'][number]['changes'], key: undefined }];
+    const fresh = pendingVersions.length ? pendingVersions : [{ label: 'Undo: back to the earlier setting', changes: [] as Data['versions'][number]['changes'], key: undefined as string | undefined }];
+    const OBJ = new Set(['config', 'opts', 'retired', 'targets']); // merged key by key; anything else (pillars) as a whole
     for (let attempt = 0; attempt < 4; attempt++) {
-      const top = must(await db.from('config_versions').select('n,snapshot').order('n', { ascending: false }).limit(1)) as Row[];
+      const top = must(await db.from('config_versions').select('n,label,changes,snapshot').order('n', { ascending: false }).limit(fresh.length)) as Row[];
       const topN = (top[0]?.n as number) ?? 0;
-      let snap = mine;
-      if (topN > savedMaxN && top[0]) {
-        // Someone else saved config: take theirs, then lay this tab's changed parts over it.
-        const theirs = top[0].snapshot as Row;
-        snap = structuredClone(theirs);
-        for (const sec of Object.keys(mine)) {
-          if (sec === 'config') {
-            const mc = mine.config as Row, bc = (base.config ?? {}) as Row, tc = ((theirs.config ?? {}) as Row);
-            const merged: Row = { ...tc };
-            for (const f of Object.keys(mc)) if (!same(mc[f], bc[f])) { merged[f] = mc[f]; if (!same(tc[f], bc[f]) && !same(tc[f], mc[f])) out.clashes.push(`config: ${f}`); }
-            snap.config = merged;
-          } else if (!same(mine[sec], base[sec])) {
-            snap[sec] = mine[sec];
-            if (!same(theirs[sec], base[sec]) && !same(theirs[sec], mine[sec])) out.clashes.push(`config: ${sec}`);
+      const theirs = (top[0]?.snapshot ?? base) as Row;
+      const someoneElse = topN > savedMaxN;
+      const snap: Row = structuredClone(theirs);
+      for (const sec of new Set([...Object.keys(mine), ...Object.keys(base)])) {
+        if (OBJ.has(sec)) {
+          const m = (mine[sec] ?? {}) as Row, bs = (base[sec] ?? {}) as Row, th = (theirs[sec] ?? {}) as Row;
+          const merged: Row = { ...th };
+          for (const f of new Set([...Object.keys(m), ...Object.keys(bs)])) if (!same(m[f], bs[f])) {
+            if (f in m) merged[f] = m[f]; else delete merged[f];
+            if (someoneElse && !same(th[f], bs[f]) && !same(th[f], m[f])) out.clashes.push(`config: ${f}`);
           }
+          snap[sec] = merged;
+        } else if (!same(mine[sec], base[sec])) {
+          snap[sec] = mine[sec];
+          if (someoneElse && !same(theirs[sec], base[sec]) && !same(theirs[sec], mine[sec])) out.clashes.push(`config: ${sec}`);
         }
-        out.merged = true;
       }
-      const rows = fresh.map((v, j) => ({ n: topN + 1 + j, label: v.label, changes: v.changes, snapshot: snap }));
-      const ins = await db.from('config_versions').insert(rows);
-      if (ins.error && (ins.error as { code?: string }).code === '23505') continue; // numbered at the same moment as another save: go again
-      if (ins.error) throw new Error(ins.error.message);
-      savedMaxN = topN + rows.length;
+      if (someoneElse) out.merged = true;
+      // A retry after a lost response: if the newest versions are already this save, don't insert them twice.
+      const already = someoneElse && top.length >= fresh.length && fresh.every((v, j) => {
+        const r = top[fresh.length - 1 - j];
+        return r && r.label === v.label && same(r.changes, v.changes) && same(r.snapshot, snap);
+      });
+      if (!already) {
+        const rows = fresh.map((v, j) => ({ n: topN + 1 + j, label: v.label, changes: v.changes, snapshot: snap }));
+        const ins = await db.from('config_versions').insert(rows);
+        if (ins.error && (ins.error as { code?: string }).code === '23505') continue; // numbered at the same moment as another save: go again
+        if (ins.error) throw new Error(ins.error.message);
+        savedMaxN = topN + rows.length;
+      } else savedMaxN = topN;
       for (const v of fresh) if (v.key) savedVersionKeys.add(v.key);
-      saved.config = canon(snap);
+      saved.config = canon(mine); // what she has; her next change is laid over the latest version again
       const all = must(await db.from('config_versions').select('n,label,changes,created_at').order('n', { ascending: false })) as Row[];
       hooks.onVersions(all.map(v => ({ n: v.n as number, date: String(v.created_at).slice(0, 10), label: v.label as string, changes: v.changes as Data['versions'][number]['changes'] })));
       return;
@@ -342,6 +359,6 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     /** Is this locally made config version saved yet? */
     versionSaved: (key: string) => savedVersionKeys.has(key),
     /** After a fresh load: compare future changes with what's in the database now. */
-    rebase(d: Data, s: Stamps) { saved = snapshotOf(d); stamps = structuredClone(s); savedMaxN = d.versions[0]?.n ?? 0; },
+    rebase(d: Data, s: Stamps) { saved = snapshotOf(d); stamps = structuredClone(s); savedMaxN = d.versions[0]?.n ?? 0; unseen.clear(); },
   };
 }

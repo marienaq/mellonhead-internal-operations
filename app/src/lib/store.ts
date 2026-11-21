@@ -135,17 +135,18 @@ export async function startRemote() {
 
 let refreshNote = '';
 let refreshing = false;
+let retryQueued = false; // one waiting retry at a time, however many ticks ask
 /** Pick up changes made elsewhere (phone, laptop, agents). Only when nothing is waiting to save, failed to
  * save, or changed while it loaded, so it never replaces an edit that hasn't reached the database.
  * Undo is dropped: it would restore stale rows. A new week reloads the page instead. */
 export async function refresh(): Promise<void> {
   if (mode !== 'ready' || !syncer || refreshing) return;
-  if (!syncer.idle()) { setTimeout(() => { void refresh(); }, 1000); return; }
+  if (!syncer.idle()) { if (!retryQueued) { retryQueued = true; setTimeout(() => { retryQueued = false; void refresh(); }, 1000); } return; }
   refreshing = true;
   const seq = syncer.seq();
   try {
     const { data: fresh, stamps } = await loadWithStamps(undefined, false);
-    if (!syncer.idle() || syncer.seq() !== seq) { setTimeout(() => { void refresh(); }, 1000); return; } // changed during the load: try again after it saves
+    if (!syncer.idle() || syncer.seq() !== seq) { if (!retryQueued) { retryQueued = true; setTimeout(() => { retryQueued = false; void refresh(); }, 1000); } return; } // changed during the load: try again after it saves
     if (makingWeek(today(), fresh.config.filmWeekday) !== CUR_WEEK) { location.reload(); return; }
     syncer.rebase(structuredClone(fresh), stamps);
     data = autoPublish(fresh);

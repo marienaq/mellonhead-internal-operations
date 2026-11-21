@@ -18,9 +18,10 @@ class FakeDb {
   from(name: string) { return new Query(this, name); }
 }
 class Query implements PromiseLike<any> {
+  declare name: string;
   op: 'select' | 'insert' | 'update' = 'select';
   payload: any; filters: [string, any][] = []; orderBy?: [string, boolean]; lim?: number; single = false; wantRows = false;
-  constructor(private db: FakeDb, private name: string) {}
+  constructor(private db: FakeDb, name: string) { this.name = name; }
   select(_cols?: string) { if (this.op !== 'select') this.wantRows = true; return this; }
   insert(rows: any) { this.op = 'insert'; this.payload = Array.isArray(rows) ? rows : [rows]; return this; }
   update(cols: Row) { this.op = 'update'; this.payload = cols; return this; }
@@ -31,7 +32,7 @@ class Query implements PromiseLike<any> {
   then<A, B>(ok?: ((v: any) => A | PromiseLike<A>) | null, bad?: ((e: any) => B | PromiseLike<B>) | null): PromiseLike<A | B> {
     return Promise.resolve().then(() => this.run()).then(ok, bad);
   }
-  private run(): { data: any; error: any } {
+  run(): { data: any; error: any } {
     const tb = this.db.t(this.name), pk = PK[this.name];
     if (this.op !== 'select' && this.db.failNext > 0) { this.db.failNext--; return { data: null, error: { message: 'network error (test)' } }; }
     const match = (r: Row) => this.filters.every(([c, v]) => String(r[c]) === String(v));
@@ -174,6 +175,84 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   const before = db.clock;
   await settle(a);
   check('key order: no write', db.clock === before, `${db.clock - before} writes`);
+}
+
+{ // 10. (review A) After a merge, her next edit to the same row must not undo the other side's change.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  agent.change(x => { x.ideas.find(i => i.id === id)!.slate = 'AGENT'; x.prepDone[`${id}:1`] = true; });
+  await settle(agent);
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'first edit'; });
+  await settle(a);
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'second edit'; });
+  await settle(a);
+  check('after merge: other side kept on her next edit', idea(db).slate === 'AGENT' && JSON.stringify(idea(db).prep_done) === '[1]' && idea(db).title === 'second edit', JSON.stringify([idea(db).slate, idea(db).prep_done, idea(db).title]));
+  a.change(x => { x.prepDone[`${id}:0`] = true; });
+  await settle(a);
+  check('after merge: her later tick merges too', JSON.stringify(idea(db).prep_done) === '[0,1]', JSON.stringify(idea(db).prep_done));
+}
+{ // 10b. After a merge, if she then changes the very field the other side changed, she's told.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  agent.change(x => { x.ideas.find(i => i.id === id)!.slate = 'AGENT'; });
+  await settle(agent);
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'edit'; });
+  await settle(a);
+  a.change(x => { x.ideas.find(i => i.id === id)!.slate = 'MINE'; });
+  await settle(a);
+  check('after merge: clash on the same field is reported', a.log.conflicts.some(c => typeof c === 'string'), JSON.stringify(a.log.conflicts));
+}
+{ // 11. (review B) Two new takes in one save while an agent took the first number.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  const n = Math.max(...Object.keys(base.takes).map(Number)) + 1;
+  agent.change(x => { x.takes[n] = { short: 'agent', text: 'AGENT', pillar: '', onCamera: 'ready' }; });
+  await settle(agent);
+  a.change(x => { x.takes[n] = { short: 'one', text: 'MINE ONE', pillar: '', onCamera: 'ready' }; x.takes[n + 1] = { short: 'two', text: 'MINE TWO', pillar: '', onCamera: 'ready' }; x.ideas.find(i => i.id === id)!.take = n; });
+  await settle(a);
+  const texts = [...db.t('takes').values()].map(r => r.text);
+  const mineOneAt = [...db.t('takes').values()].find(r => r.text === 'MINE ONE')?.n;
+  check('two takes: all three kept', texts.includes('AGENT') && texts.includes('MINE ONE') && texts.includes('MINE TWO'), JSON.stringify(texts.slice(-3)));
+  check('two takes: the idea points at MINE ONE', idea(db).take_n === mineOneAt, `${idea(db).take_n} vs ${mineOneAt}`);
+}
+{ // 12. (review C) After a config merge, an unrelated edit must not save an "Undo" that reverts the other side.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  const top = base.versions[0].n;
+  agent.change(x => { x.config.cadenceWeeks = 99; x.versions.unshift({ n: top + 1, date: '', label: 'agent', changes: [], key: 'g1' }); });
+  await settle(agent);
+  a.change(x => { x.config.mission = 'MINE'; x.versions.unshift({ n: top + 1, date: '', label: 'mine', changes: [], key: 'm1' }); });
+  await settle(a);
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'unrelated'; });
+  await settle(a);
+  const vs = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n);
+  const last = vs[vs.length - 1];
+  check('config merge: no spurious Undo version', vs.every(v => v.label !== 'Undo: back to the earlier setting'), JSON.stringify(vs.map(v => v.label)));
+  check('config merge: latest keeps both', last.snapshot.config.cadenceWeeks === 99 && last.snapshot.config.mission === 'MINE', JSON.stringify(last.snapshot.config));
+  a.change(x => { x.config.vibe = 'MINE TOO'; x.versions.unshift({ n: top + 3, date: '', label: 'mine 2', changes: [], key: 'm2' }); });
+  await settle(a);
+  const l2 = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!;
+  check('config merge: her next change keeps the agent\'s', l2.snapshot.config.cadenceWeeks === 99 && l2.snapshot.config.vibe === 'MINE TOO', JSON.stringify(l2.snapshot.config));
+}
+{ // 13. (review D) The config insert lands but its response is lost: the retry must not insert it twice.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  const top = base.versions[0].n;
+  const orig = Query.prototype.then; let dropped = false;
+  // Lose the response of the first config_versions insert after it has been applied.
+  (Query.prototype as any).then = function (this: any, ok: any, bad: any) {
+    if (!dropped && this.name === 'config_versions' && this.op === 'insert') { dropped = true; return Promise.resolve().then(() => { (this as any).run(); return { data: null, error: { message: 'network lost (test)' } }; }).then(ok, bad); }
+    return orig.call(this, ok, bad);
+  };
+  a.change(x => { x.config.mission = 'once'; x.versions.unshift({ n: top + 1, date: '', label: 'once', changes: [], key: 'o1' }); });
+  await sleep(9500); await settle(a);
+  Query.prototype.then = orig;
+  const labels = [...db.t('config_versions').values()].map(v => v.label);
+  check('lost response: version saved once', labels.filter(l => l === 'once').length === 1, JSON.stringify(labels));
+}
+{ // 14. Config sections merge key by key: she adds a series while an agent retires a feeling.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), agent = device(base, stamps, db);
+  const f = base.opts.feeling[0];
+  agent.change(x => { x.opts.feeling = x.opts.feeling.filter(v => v !== f); x.retired.feeling = [...(x.retired.feeling || []), f]; x.versions.unshift({ n: 99, date: '', label: 'retire', changes: [], key: 'r1' }); });
+  a.change(x => { x.opts.series = [...x.opts.series, 'New series']; x.versions.unshift({ n: 99, date: '', label: 'add series', changes: [], key: 's1' }); });
+  await settle(agent, a);
+  const last = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot;
+  check('config keys merge: both list changes kept', !last.opts.feeling.includes(f) && last.opts.series.includes('New series'), JSON.stringify([last.opts.feeling, last.opts.series]));
 }
 
 console.log(failures ? `\n${failures} failed` : '\nAll passed');

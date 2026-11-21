@@ -35,6 +35,7 @@ function Chips({ d, k }: { d: Data; k: OptKey }) {
   const [nv, setNv] = useState('');
   function add() {
     const v = nv.trim(); setNv(''); setUi({ adding: null });
+    if (k === 'series' && v.toLowerCase() === 'none') { toast('"none" is reserved for "not part of a series". Pick another name.'); return; }
     if (!v || d.opts[k].includes(v)) return;
     update(dd => { dd.opts[k].push(v); dd.retired[k] = (dd.retired[k] || []).filter(o => o !== v); addVersion(dd, 'Option list changed', { field: k, from: '', to: `Added "${v}"` }); }, `Added "${v}". Saved as a new version.`);
   }
