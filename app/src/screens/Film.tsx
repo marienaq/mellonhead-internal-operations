@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Data, Idea } from '../lib/types';
-import { FILM_DAY, FILM_DAYS } from '../lib/dates';
+import { CUR_WEEK, filmDate, filmDays, HOLIDAYS, holidaysInWeek, md, weekday } from '../lib/dates';
 import { currentRos, DEFAULT_TIPS, filmIdeas, GENERAL_PREP, PERSONAS } from '../lib/logic';
 import { findIdea, getData, getUi, setUi, toast, update, updateQuiet, useStore } from '../lib/store';
 import { Band, Icon, PEG, ProtoBar, asset } from '../components/ui';
@@ -82,17 +82,20 @@ export function FilmScreen() {
   const [wake, setWake] = useState(false);
   const listRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const ros = currentRos(d);
+  const FILM_DAY = filmDate(d.config.filmWeekday);
+  const shown = ui.filmDay ?? FILM_DAY;
+  const hols = holidaysInWeek(CUR_WEEK);
 
   const head = <>
     <ProtoBar />
     <Band pos="84% 74%" />
-    <div className="film-head"><div><p className="eyebrow">Run of show</p><h1 style={{ fontSize: 26 }}>Film day</h1><span className="tag sm" style={{ marginTop: 6 }}>Thursday is Thanksgiving</span></div>
+    <div className="film-head"><div><p className="eyebrow">Run of show</p><h1 style={{ fontSize: 26 }}>Film day</h1>{hols.map(h => <span key={h} className="tag sm" style={{ marginTop: 6, marginRight: 6 }}>{weekday(h)} is {HOLIDAYS[h]}</span>)}</div>
       <figure className="polaroid r" style={{ margin: 0, width: 88 }}><img src={PEG} alt="Peg-doll Mariena" /><figcaption>you</figcaption></figure></div>
-    <div className="days">{FILM_DAYS.map(([day, w, l]) => <button key={day} className="day" aria-pressed={ui.filmDay === day} onClick={() => setUi({ filmDay: day, focus: null })}>{w}<small>{l}{day === '2026-11-26' ? ' · holiday' : ''}</small></button>)}</div>
+    <div className="days">{filmDays(d.config.filmWeekday).map(({ day, short, label }) => <button key={day} className="day" aria-pressed={shown === day} onClick={() => setUi({ filmDay: day === FILM_DAY ? null : day, focus: null })}>{short}<small>{label}{HOLIDAYS[day] ? ' · holiday' : ''}</small></button>)}</div>
   </>;
-  if (ui.filmDay !== FILM_DAY) return <>{head}<div className="card empty" style={{ marginTop: 20 }}><figure className="polaroid" style={{ margin: 0 }}><img src={asset('jay')} alt="Jay the felt jay" /><figcaption>Jay</figcaption></figure>
-    <h2 style={{ fontSize: 18 }}>Nothing to film this day</h2><p className="muted small">This week's run of show is on Wednesday. It has {filmIdeas(d).length} videos.</p>
-    <button className="btn" onClick={() => setUi({ filmDay: FILM_DAY })}>Go to Wednesday</button></div></>;
+  if (shown !== FILM_DAY) return <>{head}<div className="card empty" style={{ marginTop: 20 }}><figure className="polaroid" style={{ margin: 0 }}><img src={asset('jay')} alt="Jay the felt jay" /><figcaption>Jay</figcaption></figure>
+    <h2 style={{ fontSize: 18 }}>Nothing to film this day</h2><p className="muted small">This week's run of show is on {weekday(FILM_DAY)}. It has {filmIdeas(d).length} videos.</p>
+    <button className="btn" onClick={() => setUi({ filmDay: null })}>Go to {weekday(FILM_DAY)}</button></div></>;
 
   const all = ros.flatMap(b => b.groups.flatMap(g => g.ids)).map(id => findIdea(d, id)).filter((x): x is Idea => !!x);
   const nDone = all.filter(i => d.filmed[i.id]).length;
@@ -139,7 +142,7 @@ export function FilmScreen() {
         {all.flatMap(i => i.prep.map((p, n) => <Ck key={i.id + n} d={d} k={`${i.id}:${n}`} text={p} slate={i.slate} />))}</ul></section>
   </>;
 
-  if (!all.length) return <>{top}<div className="card empty" style={{ marginTop: 20 }}><p><strong>Nothing on deck to film</strong></p><p className="muted small">Put ideas on deck for the week of Nov 23 on Plan week.</p></div></>;
+  if (!all.length) return <>{top}<div className="card empty" style={{ marginTop: 20 }}><p><strong>Nothing on deck to film</strong></p><p className="muted small">Put ideas on deck for the week of {md(CUR_WEEK)} on Plan week.</p></div></>;
 
   if (ui.focus !== null) {
     const idx = Math.max(0, Math.min(ui.focus, all.length - 1)); const i = all[idx];

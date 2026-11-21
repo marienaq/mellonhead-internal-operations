@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { Data, OptKey } from '../lib/types';
-import { addDays, fmtDate, md } from '../lib/dates';
+import { addDays, DEFAULT_FILM_WEEKDAY, filmDate, fmtDate, md, wmd } from '../lib/dates';
 import { addVersion, LOCK, TARGET_LABEL } from '../lib/logic';
 import { getUi, setUi, toast, update, useStore } from '../lib/store';
 import { Band, Icon, ProtoBar, asset } from '../components/ui';
+
+const FILM_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 type CfgKey = 'throughline' | 'mission' | 'person' | 'vibe' | 'advice';
 const CFG_LABEL: Record<CfgKey, string> = { throughline: 'Through-line', mission: 'Mission', person: 'The person', vibe: 'Voice: vibe', advice: 'Voice: advice' };
@@ -80,7 +82,7 @@ export function ConfigScreen() {
     <header className="screen-head"><div><p className="eyebrow">Read by every agent</p><h1>Config</h1></div><span className="tag">version {cur.n} · {md(cur.date)}</span></header>
     <div className="card agent-note"><img className="felt-c" src={asset('griz')} alt="Griz the felt bear" /><p><strong>Every agent reads this</strong><span className="muted">Each change saves as a new version, so you can see what the plan was when a video was made.</span></p></div>
     <nav className="jump" aria-label="Config sections" style={{ marginTop: 16 }}>
-      {[['cfg-positioning', 'Positioning'], ['cfg-lists', 'Option lists'], ['cfg-ranges', 'Mix ranges'], ['cfg-checkin', 'Check-in'], ['cfg-history', 'History'], ...(mode === 'local' ? [['cfg-proto', 'Prototype']] : [])].map(([id, l]) => <a key={id} href={'#' + id} onClick={jump(id)}>{l}</a>)}
+      {[['cfg-positioning', 'Positioning'], ['cfg-lists', 'Option lists'], ['cfg-ranges', 'Mix ranges'], ['cfg-film', 'Film day'], ['cfg-checkin', 'Check-in'], ['cfg-history', 'History'], ...(mode === 'local' ? [['cfg-proto', 'Prototype']] : [])].map(([id, l]) => <a key={id} href={'#' + id} onClick={jump(id)}>{l}</a>)}
     </nav>
 
     <section className="section" id="cfg-positioning"><h2>Positioning</h2>
@@ -107,6 +109,14 @@ export function ConfigScreen() {
     <section className="section" id="cfg-ranges"><h2>Mix ranges</h2>
       <div className="card cfg">{Object.keys(d.targets).map(k => <RangeRow key={k} d={d} k={k} />)}</div>
       <p className="muted small">Same ranges as the meters on Plan week. Drag there or step here.</p>
+    </section>
+
+    <section className="section" id="cfg-film"><h2>Film day</h2>
+      <div className="card cfg"><div className="range-row"><span className="lab">You film on<small>This week that's {wmd(filmDate(d.config.filmWeekday))}</small></span>
+        <span className="seg" role="group" aria-label="Film day">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((l, k) => {
+          const n = k + 1, cur = d.config.filmWeekday ?? DEFAULT_FILM_WEEKDAY;
+          return <button key={l} aria-pressed={cur === n} onClick={() => { if (cur === n) return; update(dd => { dd.config.filmWeekday = n; addVersion(dd, 'Film day changed', { field: 'Film day', from: FILM_NAMES[cur - 1], to: FILM_NAMES[n - 1] }); }); }}>{l}</button>;
+        })}</span></div></div>
     </section>
 
     <section className="section" id="cfg-checkin"><h2>Check-in cadence</h2>

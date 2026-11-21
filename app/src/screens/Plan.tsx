@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { Data, Idea } from '../lib/types';
-import { addDays, CUR_WEEK, md, today, WEEKS, weekKind, weekSub, wmd } from '../lib/dates';
+import { addDays, CUR_WEEK, filmDate, md, today, WEEKS, weekKind, weekSub, wmd } from '../lib/dates';
 import { addVersion, computeMix, counted, dimFlag, fixesFor, LOCK, move, rowFlagText, TARGET_LABEL, targetText, WEEK_STATUSES } from '../lib/logic';
 import type { Dim, MixRow } from '../lib/logic';
 import { getData, getUi, openSheet, setUi, toast, update, updateQuiet, useStore } from '../lib/store';
@@ -16,7 +16,7 @@ function Trail({ d, w }: { d: Data; w: string }) {
   else if (items.length && items.every(i => i.status === 'scheduled' || i.status === 'published')) cur = 4;
   else if (items.some(i => d.filmed[i.id] || i.status !== 'on deck')) cur = 3;
   else cur = d.locked[w] ? 2 : 0;
-  const stops = ['Pick ideas', 'Reviewed', w === CUR_WEEK ? 'Film Wed' : 'Film', 'Edit and schedule', 'Posted'];
+  const stops = ['Pick ideas', 'Reviewed', w === CUR_WEEK ? `Film ${wmd(filmDate(d.config.filmWeekday)).split(',')[0]}` : 'Film', 'Edit and schedule', 'Posted'];
   const xs = [34, 102, 170, 238, 306], ys = [30, 18, 30, 18, 26];
   const path = 'M34 30 C 60 6, 80 8, 102 18 S 146 40, 170 30 S 214 8, 238 18 S 284 34, 306 26';
   return <div className="card trail" aria-label={`Week progress: ${stops[Math.min(cur, 4)]}`}>
@@ -119,7 +119,7 @@ function DimRow({ d, dim, w, open }: { d: Data; dim: Dim; w: string; open: boole
 }
 
 export function PlanScreen() {
-  const { data: d, ui } = useStore();
+  const { data: d, ui, mode } = useStore();
   const w = ui.week, kind = weekKind(w), wi = WEEKS.indexOf(w);
   const items = d.ideas.filter(i => i.week === w && WEEK_STATUSES.includes(i.status)).sort((a, b) => (a.postDate || '9').localeCompare(b.postDate || '9'));
   const setWeek = (k: number) => { const n = wi + k; if (n >= 0 && n < WEEKS.length) setUi({ week: WEEKS[n], lockConfirm: false }); };
@@ -128,7 +128,7 @@ export function PlanScreen() {
     <Band pos="48% 72%" />
     <div className="weeknav">
       <button className="arrow" disabled={wi <= 0} onClick={() => setWeek(-1)} aria-label="Previous week">{Icon.back}</button>
-      <div className="mid"><p className="eyebrow">{kind === 'past' ? 'Past week' : kind === 'current' ? 'This week' : 'Next week'}</p><h1>Week of {md(w)}</h1><p className="sub">{weekSub(w)}</p></div>
+      <div className="mid"><p className="eyebrow">{kind === 'past' ? 'Past week' : kind === 'current' ? 'This week' : 'Next week'}</p><h1>Week of {md(w)}</h1><p className="sub">{weekSub(w, d.config.filmWeekday)}</p></div>
       <button className="arrow" disabled={wi >= WEEKS.length - 1} onClick={() => setWeek(1)} aria-label="Next week">{Icon.fwd}</button>
     </div>
     {d.locked[w] && <div style={{ display: 'grid', justifyItems: 'center', margin: '2px 0 8px' }}><span className="tag sm lockstamp">reviewed {wmd(d.locked[w])}</span></div>}
@@ -143,7 +143,7 @@ export function PlanScreen() {
           <span className="meta"><PillarChip d={d} p={i.pillar} /><span>{i.type}</span><span>{i.status === 'published' ? 'Posted' : 'Posts'} {wmd(i.postDate!)}</span></span></div>)}</div></section>
       <section className="section"><h2>Results <span className="chip">later</span></h2>
         <div className="card" style={{ padding: 16 }}><p className="small muted">Views, comments, saves and watch time arrive with the Sunday signal check once the app is connected. Results gets its own tab in round 3.</p></div></section>
-      <p className="example-note">Past weeks are example rows until your real history is imported. Statuses move to published on their own once the post date passes.</p>
+      <p className="example-note">{mode === 'local' ? 'Past weeks are example rows in the prototype. ' : ''}Statuses move to published on their own once the post date passes.</p>
     </>;
   }
 
@@ -177,6 +177,6 @@ export function PlanScreen() {
           : <><h2>Done reviewing this week?</h2><p className="small muted">A check for you that you've looked the week over. Nothing else changes.</p>
             <div><button className="btn primary lock-btn" onClick={() => (nOff ? setUi({ lockConfirm: true }) : markReviewed())}>Done reviewing this week</button></div></>}
       </div></div></section>}
-    <p className="example-note">The mix counts on deck, in progress and scheduled ideas for this week. Pillar looks back 14 days{addDays(w, -7) < CUR_WEEK ? ' (last week is example rows)' : ''}.</p>
+    <p className="example-note">The mix counts on deck, in progress and scheduled ideas for this week. Pillar looks back 14 days{mode === 'local' && addDays(w, -7) < CUR_WEEK ? ' (last week is example rows)' : ''}.</p>
   </>;
 }

@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Data, Idea } from './types';
 import { seed } from './seed';
-import { CUR_WEEK, FILM_DAY, today } from './dates';
+import { CUR_WEEK, syncWeek, today } from './dates';
 import { loadAll, makeSyncer, remoteEnabled } from './remote';
 
 const KEY = 'mh-content-planner-v1';
@@ -26,7 +26,7 @@ export interface Ui {
   dimOpen: Record<string, boolean>;
   lockConfirm: boolean;
   backTo: 'ideas' | 'plan' | 'film';
-  filmDay: string;
+  filmDay: string | null; // null: the film day from Config
   focus: number | null;
   scriptOpen: Record<string, boolean>;
   openVersion: number | null;
@@ -65,9 +65,10 @@ function save(d: Data) {
 }
 
 let data: Data = remoteEnabled ? seed() : load();
+if (!remoteEnabled) syncWeek(data.config.filmWeekday); // remote: loadAll does this once the config arrives
 let ui: Ui = {
   week: CUR_WEEK, ideasTab: 'proposed', dimOpen: {}, lockConfirm: false, backTo: 'plan',
-  filmDay: FILM_DAY, focus: null, scriptOpen: { 'tell-boss': true }, openVersion: null, editing: null, adding: null,
+  filmDay: null, focus: null, scriptOpen: {}, openVersion: null, editing: null, adding: null,
   retiredOpen: {}, sheet: null, toast: null, flash: null,
 };
 let snap: { data: Data; ui: Ui; mode: Mode; modeError: string } = { data, ui, mode, modeError };
@@ -113,6 +114,7 @@ export async function startRemote() {
     const loaded = await loadAll();
     const baseline = structuredClone(loaded); // what's in the database now
     data = autoPublish(loaded);
+    ui = { ...ui, week: CUR_WEEK }; // loadAll settled the week from the film-day setting
     syncer = makeSyncer(baseline,
       v => { data = { ...data, versions: v }; emit(); },
       msg => toast(`Couldn't save to Supabase: ${msg}. Reload to see what's saved.`));
@@ -126,7 +128,7 @@ export function resetToSeed() {
   const prev = data;
   data = autoPublish(seed());
   save(data);
-  ui = { ...ui, week: CUR_WEEK, dimOpen: {}, lockConfirm: false, focus: null, scriptOpen: { 'tell-boss': true }, sheet: null };
+  ui = { ...ui, week: CUR_WEEK, dimOpen: {}, lockConfirm: false, focus: null, scriptOpen: {}, sheet: null };
   toast('Back to the seed data.', prev);
 }
 

@@ -64,7 +64,7 @@ export interface Data {
   opts: Record<OptKey, string[]>;
   retired: Record<OptKey, string[]>;
   pillars: Pillar[];
-  config: { mission: string; throughline: string; person: string; vibe: string; advice: string; cadenceWeeks: number; lastCheckin: string };
+  config: { mission: string; throughline: string; person: string; vibe: string; advice: string; cadenceWeeks: number; lastCheckin: string; filmWeekday?: number };
   versions: Version[];
   targets: Record<string, [number, number]>;
   includeProposed: boolean;

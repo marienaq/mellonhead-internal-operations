@@ -5,7 +5,7 @@
  * Nothing is ever deleted: a row that disappears locally (for example, undoing "add idea") is archived. */
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { Block, Data, Idea, Persona, Gut } from './types';
-import { CUR_WEEK } from './dates';
+import { CUR_WEEK, syncWeek } from './dates';
 
 const env = ((import.meta as unknown as { env?: Record<string, string> }).env) ?? {};
 const url = env.VITE_SUPABASE_URL as string | undefined;
@@ -42,6 +42,7 @@ export async function loadAll(c: SupabaseClient<any, any, any> = sb as unknown a
 
   const top = versions[0]; if (!top) throw new Error('No config found. Run the import first.');
   const snap = top.snapshot as Pick<Data, 'opts' | 'retired' | 'pillars' | 'config' | 'targets'>;
+  syncWeek(snap.config.filmWeekday); // before picking this week's run of show below
   const d: Data = {
     schema: 2,
     ideas: ideas.map(fromIdeaRow),

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { closeSheet, getUi, setMode, startRemote, useStore } from './lib/store';
+import { closeSheet, getData, getUi, setMode, startRemote, useStore } from './lib/store';
+import { CUR_WEEK, makingWeek } from './lib/dates';
 import { getSession, remoteEnabled, sb } from './lib/remote';
 import { go, useRoute } from './lib/router';
 import { Icon, ResetSheet, SignIn, Toast } from './components/ui';
@@ -53,6 +54,12 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => { closeSheet(); }, [r]);
+  // A tab left open past the weekly rollover: reload when it comes back, so the new week loads clean.
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === 'visible' && makingWeek(undefined, getData().config.filmWeekday) !== CUR_WEEK) location.reload(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, []);
   if (mode !== 'local' && mode !== 'ready') return <><SignIn /><Toast /></>;
 
   return <>

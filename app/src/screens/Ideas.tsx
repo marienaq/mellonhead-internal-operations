@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Data, Idea, Origin } from '../lib/types';
-import { CUR_WEEK, md, WEEKS, weekKind } from '../lib/dates';
+import { CUR_WEEK, filmDate, md, WEEKS, weekKind, wmd } from '../lib/dates';
 import { addTake, move, nextTakeNumber, readiness, WEEK_STATUSES } from '../lib/logic';
 import { closeSheet, getData, openSheet, setUi, toast, update, useStore } from '../lib/store';
 import { currentScreen, go } from '../lib/router';
@@ -90,7 +90,7 @@ export function OnDeckSheet({ id }: { id: string }) {
     <div className="optlist">{WEEKS.filter(w => weekKind(w) !== 'past').map(w => {
       const n = d.ideas.filter(x => x.week === w && WEEK_STATUSES.includes(x.status)).length;
       return <button key={w} className="opt" onClick={() => { closeSheet(); move(id, 'on deck', { week: w }); }}>
-        <span>Week of {md(w)} <small>{w === CUR_WEEK ? 'making now, film Wed Nov 25' : 'next week'}</small></span><small className="num">{n} on deck</small></button>;
+        <span>Week of {md(w)} <small>{w === CUR_WEEK ? `making now, film ${wmd(filmDate(d.config.filmWeekday))}` : 'next week'}</small></span><small className="num">{n} on deck</small></button>;
     })}</div>
   </Sheet>;
 }
@@ -148,7 +148,7 @@ export function AddIdeaSheet() {
     closeSheet();
     if (dest !== 'on deck') setUi({ ideasTab: dest });
     const n = takeN && take === 'new' ? `Take #${takeN} saved to your bank. ` : '';
-    toast(n + (dest === 'on deck' ? 'Saved and on deck for Nov 23. Orca will draft the rest.' : 'Saved. Orca will draft the rest on the next pass.'), before);
+    toast(n + (dest === 'on deck' ? `Saved and on deck for ${md(CUR_WEEK)}. Orca will draft the rest.` : 'Saved. Orca will draft the rest on the next pass.'), before);
     if (currentScreen() !== 'ideas') go('ideas');
   }
   return <Sheet>
@@ -169,7 +169,7 @@ export function AddIdeaSheet() {
           <p className="muted small" style={{ marginTop: 4 }}>Saved to your takes bank as #{nextTakeNumber(d)}.</p></>}
       </div>
       {src === 'experience' && <button type="button" className="switch" role="switch" aria-checked={toBank} onClick={() => setToBank(!toBank)}><span className="sw" />Also save to my story bank</button>}
-      <div><span className="lbl">Where it goes</span><span className="seg" role="group">{([['proposed', 'New'], ['on deck', 'On deck, week of Nov 23'], ['backlog', 'Backlog']] as const).map(([k, l]) =>
+      <div><span className="lbl">Where it goes</span><span className="seg" role="group">{([['proposed', 'New'], ['on deck', `On deck, week of ${md(CUR_WEEK)}`], ['backlog', 'Backlog']] as const).map(([k, l]) =>
         <button type="button" key={k} aria-pressed={dest === k} onClick={() => setDest(k)}>{l}</button>)}</span></div>
     </form>
     <div className="sheet-actions"><button className="btn ghost" onClick={closeSheet}>Cancel</button><button className="btn primary" onClick={save}>Save idea</button></div>
