@@ -139,6 +139,15 @@ export function addTake(d: Data, text: string, pillar = '') {
   return n;
 }
 export const nextTakeNumber = (d: Data) => Math.max(0, ...Object.keys(d.takes).map(Number)) + 1;
+/** A new story in her words, saved to the story bank. Blinded until she says otherwise (client stories stay
+ * blinded). The key gets a short suffix so it can't land on an archived story that already has that name. */
+export function addStory(d: Data, title: string, pillar = ''): string {
+  const slug = title.normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '') || 'story';
+  let key = `${slug}-${Date.now().toString(36).slice(-4)}`;
+  while (d.stories[key]) key = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+  d.stories[key] = { title, pillar, known: '', missing: '', onCamera: 'blinded' };
+  return key;
+}
 
 /* ---------- Idea fields ---------- */
 export const REHOOK: Record<string, string> = { feeling: 'feeling', take: 'take', summary: 'angle', style: 'content style', onCamera: 'on-camera setup' };

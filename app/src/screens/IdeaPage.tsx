@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { INNER_WORLD_LABEL, type Data, type Gut, type Idea, type InnerWorld, type OptKey } from '../lib/types';
 import { addDays, CUR_WEEK, md, today, wmd } from '../lib/dates';
-import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, personaWants, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
+import { addStory, addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, personaWants, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
 import { closeSheet, findIdea, getData, openSheet, refresh, toast, update, useStore } from '../lib/store';
 import { remoteEnabled, sb } from '../lib/remote';
 import { go } from '../lib/router';
@@ -259,15 +259,17 @@ export function FieldSheet({ id, k }: { id: string; k: string }) {
     <div className="optlist">
       {k === 'type' && <p className="muted small">A week aims for 3 authority, 2 storyline, 1 personality and 1 follow the signal.</p>}
       {opts.map(o => <button key={o || 'none'} className={`opt${k === 'take' || (k === 'type' && TYPE_HELP[o]) || (k === 'story' && !o) ? ' col' : ''}`} aria-pressed={curVal === o} onClick={() => { closeSheet(); setField(id, k, o); }}><span>{label(o)}</span></button>)}
-      {(k === 'series' || k === 'take') && <form className="opt" style={{ gap: 8 }} onSubmit={e => {
+      {(k === 'series' || k === 'take' || k === 'story') && <form className="opt" style={{ gap: 8 }} onSubmit={e => {
         e.preventDefault(); const v = newVal.trim(); if (!v) return; closeSheet();
         if (k === 'take') { let n = 0; update(dd => { n = addTake(dd, v, findIdea(dd, id)!.pillar); }); toast(`Saved to your takes bank as #${n}.`); setField(id, 'take', String(n)); }
+        else if (k === 'story') { let key = ''; update(dd => { key = addStory(dd, v, findIdea(dd, id)!.pillar); }); toast('Saved to your story bank, blinded.'); setField(id, 'story', key); }
         else if (v.toLowerCase() === NO_SERIES) { toast('"none" is reserved for "not part of a series". Pick another name.'); return; }
         else { update(dd => { if (!dd.opts.series.includes(v)) { dd.opts.series.push(v); addVersion(dd, 'Series added', { field: 'Series', from: '', to: `Added "${v}"` }); } }); setField(id, 'series', v); }
       }}>
-        <input type="text" value={newVal} onChange={e => setNewVal(e.target.value)} aria-label={k === 'take' ? 'New take' : 'New series name'} placeholder={k === 'take' ? 'Add a new take, in your words' : 'New series name'} style={{ border: 0, padding: 0 }} />
+        <input type="text" value={newVal} onChange={e => setNewVal(e.target.value)} aria-label={k === 'take' ? 'New take' : k === 'story' ? 'New story' : 'New series name'} placeholder={k === 'take' ? 'Add a new take, in your words' : k === 'story' ? 'Add a new story: its title, in your words' : 'New series name'} style={{ border: 0, padding: 0 }} />
         <button className="btn sm" type="submit">Add</button></form>}
       {k === 'take' && <p className="muted small">A new take is saved to your takes bank as #{nextTakeNumber(d)}, in your words.</p>}
+      {k === 'story' && <p className="muted small">A new story is saved to your story bank, blinded until you say otherwise. Add what you remember and what's missing later, or with the story interview.</p>}
     </div>
     {drafted && <div className="sheet-actions"><button className="btn primary" onClick={() => { closeSheet(); setField(id, k, curVal); }}>Confirm as drafted</button></div>}
   </Sheet>;

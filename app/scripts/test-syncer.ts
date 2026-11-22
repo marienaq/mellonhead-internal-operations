@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { canon, makeSyncer, rowsOf, type Stamps } from '../src/lib/remote';
 import { seed } from '../src/lib/seed';
+import { addStory } from '../src/lib/logic';
 import type { Data } from '../src/lib/types';
 
 type Row = Record<string, any>;
@@ -390,6 +391,17 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   a.change(x => { x.ideas.find(i => i.id === id)!.chosen = 0; });
   await settle(a);
   check('fresh pick: saved', idea(db).chosen === '0', String(idea(db).chosen));
+}
+
+{ // 27. A story added from the idea's story picker: saved to the bank (blinded) and picked for the idea.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  let key = '';
+  a.change(x => { key = addStory(x, 'The vendor demo that went sideways', 'Messy'); const i = x.ideas.find(i => i.id === id)!; i.story = key; i.noStory = false; });
+  await settle(a);
+  const st = db.t('stories').get(key);
+  check('new story: saved, blinded', !!st && st.title === 'The vendor demo that went sideways' && st.on_camera === 'blinded', JSON.stringify(st));
+  check('new story: picked for the idea', idea(db).story_key === key && a.log.errors.length === 0, JSON.stringify({ sk: idea(db).story_key, e: a.log.errors }));
+  check('new story: key is readable and unique', /^the-vendor-demo-that-went-sideways-[a-z0-9]{1,4}$/.test(key), key);
 }
 
 console.log(failures ? `\n${failures} failed` : '\nAll passed');
