@@ -155,7 +155,10 @@ type Table = keyof typeof PK;
 const TABLES: Table[] = ['takes', 'stories', 'ideas', 'weeks', 'prefs']; // takes and stories first: ideas reference them
 const SET_COLS = new Set(['prep_done', 'general_prep_done']);
 // Merged item by item with the database's copy, so two places adding to them both keep their adds.
-const APPEND_COLS = new Set(['notes', 'channels', 'links', 'inner_world']);
+// `drafted` too: an agent marking a field drafted while she confirms another keeps both.
+const APPEND_COLS = new Set(['notes', 'channels', 'links', 'inner_world', 'drafted']);
+/** Objects merged key by key: an agent's outfit survives her editing the setup. */
+const KEYED_COLS = new Set(['look']);
 /** Columns that are one fact together: written together, so a merge can't combine one side's half with the other's. */
 const COUPLED: string[][] = [['story_key', 'no_story']];
 
@@ -238,7 +241,15 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     let clash = false;
     for (const c of Object.keys(cols)) {
       if (SET_COLS.has(c) || APPEND_COLS.has(c)) final[c] = mergeList(c, base?.[c], cols[c], cur[c]);
-      else {
+      else if (KEYED_COLS.has(c) && isPlain(cols[c]) && isPlain(cur[c])) {
+        const b = isPlain(base?.[c]) ? base![c] as Row : {}, m = cols[c] as Row, th = cur[c] as Row;
+        const merged: Row = { ...th };
+        for (const key of Object.keys(m)) if (!same(m[key], b[key])) {
+          if (base && !same(th[key], b[key]) && !same(th[key], m[key])) clash = true;
+          merged[key] = m[key];
+        }
+        final[c] = merged;
+      } else {
         final[c] = cols[c];
         if (!same(cur[c], cols[c]) && (!base || !same(cur[c], base[c]))) clash = true; // they changed this column too
       }

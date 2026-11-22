@@ -1,7 +1,7 @@
 /* Tests the syncer against an in-memory stand-in for Supabase: two "devices" (phone and laptop) editing
  * the same data at once. No network, no real database. Run: npx tsx scripts/test-syncer.ts */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { makeSyncer, rowsOf, type Stamps } from '../src/lib/remote';
+import { canon, makeSyncer, rowsOf, type Stamps } from '../src/lib/remote';
 import { seed } from '../src/lib/seed';
 import type { Data } from '../src/lib/types';
 
@@ -352,6 +352,25 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   await sleep(9000); await settle(a);
   Query.prototype.then = orig;
   check('permission denied: saved on retry', idea(db).title === 'KEPT', idea(db).title);
+}
+
+{ // 23. (step 3 review) An agent marks the angle drafted while she confirms the pillar: both stand.
+  const d0 = structuredClone(base); d0.ideas.find(i => i.id === id)!.drafted = ['pillar'];
+  const { db, stamps } = freshDb(d0); const a = device(d0, stamps, db);
+  const row = db.t('ideas').get(id)!; row.summary = 'agent angle'; row.drafted = ['pillar', 'summary']; row.updated_at = db.stamp();
+  a.change(x => { const i = x.ideas.find(i => i.id === id)!; i.drafted = i.drafted.filter(f => f !== 'pillar'); });
+  await settle(a);
+  const r = idea(db);
+  check('drafted: her confirm and the agent mark both kept', canon(r.drafted) === canon(['summary']), JSON.stringify(r.drafted));
+}
+{ // 24. (step 3 review) An agent sets the outfit while she edits the setup: both kept.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  const row = db.t('ideas').get(id)!; row.look = { ...row.look, outfit: 'green sweater' }; row.updated_at = db.stamp();
+  a.change(x => { const i = x.ideas.find(i => i.id === id)!; i.look = { ...i.look, setup: 'desk' }; });
+  await settle(a);
+  const r = idea(db);
+  check('look: both keys kept', r.look.outfit === 'green sweater' && r.look.setup === 'desk', JSON.stringify(r.look));
+  check('look: no clash reported', !a.log.conflicts.some(c => c), JSON.stringify(a.log.conflicts));
 }
 
 console.log(failures ? `\n${failures} failed` : '\nAll passed');
