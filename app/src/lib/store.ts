@@ -1,7 +1,7 @@
 /* One small store: the data (saved in this browser) plus screen state (not saved).
  * Every change clones the data, so undo is "put the old copy back". No database yet (stage E). */
 import { useSyncExternalStore } from 'react';
-import type { Data, Idea } from './types';
+import { DEFAULT_CHANNELS, type Data, type Idea } from './types';
 import { seed } from './seed';
 import { CUR_WEEK, makingWeek, syncWeek, today } from './dates';
 import { loadWithStamps, makeSyncer, remoteEnabled } from './remote';
@@ -16,6 +16,7 @@ export type SheetState =
   | { kind: 'date'; id: string }
   | { kind: 'own'; id: string }
   | { kind: 'chat'; id: string }
+  | { kind: 'links'; id: string }
   | { kind: 'add' }
   | { kind: 'addFromIdeas' }
   | { kind: 'reset' };
@@ -48,7 +49,15 @@ function autoPublish(d: Data) {
 function load(): Data {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const d = JSON.parse(raw) as Data; if (d && d.schema === 2 && Array.isArray(d.ideas)) return autoPublish(d); }
+    if (raw) {
+      const d = JSON.parse(raw) as Data;
+      if (d && d.schema === 2 && Array.isArray(d.ideas)) {
+        // Saved before channels, links and "no story" existed.
+        for (const i of d.ideas) { i.channels ??= []; i.links ??= []; i.noStory ??= false; i.innerWorld ??= []; }
+        d.opts.channel ??= [...DEFAULT_CHANNELS]; d.retired.channel ??= [];
+        return autoPublish(d);
+      }
+    }
   } catch { /* fall through to seed */ }
   return autoPublish(seed());
 }
@@ -119,8 +128,10 @@ export async function startRemote() {
       // The saved list from the database, plus versions made here that aren't saved yet.
       onVersions: v => { data = { ...data, versions: [...data.versions.filter(x => x.key && !syncer!.versionSaved(x.key)), ...v] }; emit(); },
       onError: msg => toast(`Couldn't save to Supabase: ${msg}. Your change is kept here and will try again.`),
+      // Shown after the reload it triggers, so the refresh doesn't replace it; it outranks the plain "updated" note.
+      onRefused: msg => { refreshNote = `${msg}.${refreshNote && !refreshNote.startsWith('Updated') ? ' ' + refreshNote : ''}`; },
       onConflict: clash => {
-        if (clash) refreshNote = `${clash}: your change replaced one made somewhere else.`;
+        if (clash) refreshNote = refreshNote && !refreshNote.startsWith('Updated') ? `${refreshNote} ${clash}: your change replaced one made somewhere else.` : `${clash}: your change replaced one made somewhere else.`;
         else if (!refreshNote) refreshNote = 'Updated with changes made somewhere else.'; // never hide a clash message
         void refresh();
       },

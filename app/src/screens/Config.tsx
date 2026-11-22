@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import type { Data, OptKey } from '../lib/types';
+import type { Data, InnerWorld, OptKey, Persona } from '../lib/types';
 import { addDays, DEFAULT_FILM_WEEKDAY, filmDate, fmtDate, md, wmd } from '../lib/dates';
-import { addVersion, LOCK, TARGET_LABEL } from '../lib/logic';
+import { addVersion, LOCK, personaWants, PERSONAS, TARGET_LABEL } from '../lib/logic';
 import { checkWeek, getUi, setUi, toast, update, useStore } from '../lib/store';
 import { Band, Icon, ProtoBar, asset } from '../components/ui';
 
 const FILM_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-type CfgKey = 'throughline' | 'mission' | 'person' | 'vibe' | 'advice';
-const CFG_LABEL: Record<CfgKey, string> = { throughline: 'Through-line', mission: 'Mission', person: 'The person', vibe: 'Voice: vibe', advice: 'Voice: advice' };
+type CfgKey = 'throughline' | 'mission' | 'person' | 'vibe' | 'advice' | 'gutQuestion';
+const CFG_LABEL: Record<CfgKey, string> = { throughline: 'Through-line', mission: 'Mission', person: 'The person', vibe: 'Voice: vibe', advice: 'Voice: advice', gutQuestion: 'Gut check: the question' };
+/** The person's inner world, from foundation.md. Agents draft from it. */
+const IW: [keyof InnerWorld, string][] = [['coreProblem', 'The core problem'], ['hurting', "What's hurting"], ['tried', "What they've tried"], ['thinking', 'Thinking, not saying'], ['afraid', 'Afraid of'], ['wants', 'Wants']];
 
 function Editable({ k, text }: { k: string; text: string }) {
   const { ui } = useStore();
   const [v, setV] = useState(text);
-  if (ui.editing !== k) return <button className="editable" onClick={() => { setV(text); setUi({ editing: k }); }}>{text}<span className="pen">Edit</span></button>;
+  if (ui.editing !== k) return <button className="editable" onClick={() => { setV(text); setUi({ editing: k }); }}>{text || <span className="muted">Not set yet</span>}<span className="pen">{text ? 'Edit' : 'Add'}</span></button>;
   return <div style={{ display: 'grid', gap: 8 }}><textarea autoFocus value={v} onChange={e => setV(e.target.value)} />
     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><button className="btn ghost sm" onClick={() => setUi({ editing: null })}>Cancel</button>
       <button className="btn primary sm" onClick={() => {
@@ -22,6 +24,8 @@ function Editable({ k, text }: { k: string; text: string }) {
         update(d => {
           let field: string;
           if (k.startsWith('pillar')) { const p = d.pillars[+k.slice(6)]; p.desc = nv; field = `Pillar: ${p.name}`; }
+          else if (k.startsWith('iw.')) { const f = k.slice(3) as keyof InnerWorld; d.config.innerWorld = { ...d.config.innerWorld, [f]: nv }; /* only this field, so a merge can't blank the others */ field = `Inner world: ${IW.find(x => x[0] === f)![1]}`; }
+          else if (k.startsWith('persona.')) { const p = k.slice(8) as Persona; d.config.personas = { ...d.config.personas, [p]: nv }; field = `Gut check: ${p}`; }
           else { d.config[k as CfgKey] = nv; field = CFG_LABEL[k as CfgKey]; }
           n = addVersion(d, `${field} edited`, { field, from: text, to: nv });
         });
@@ -74,7 +78,7 @@ export function ConfigScreen() {
   const { data: d, ui, mode } = useStore();
   const cur = d.versions[0];
   const next = addDays(d.config.lastCheckin, d.config.cadenceWeeks * 7);
-  const lists: [OptKey, string, string][] = [['feeling', 'Feelings', 'each video names one'], ['style', 'Content styles', ''], ['series', 'Series', 'ideas pick from this list'], ['onCamera', 'On-camera setups', ''], ['voice', 'Voices and characters', ''], ['cta', 'Calls to action', ''], ['hookFormat', 'Hook formats', '']];
+  const lists: [OptKey, string, string][] = [['feeling', 'Feelings', 'each video names one'], ['style', 'Content styles', ''], ['series', 'Series', 'ideas pick from this list'], ['onCamera', 'On-camera setups', ''], ['voice', 'Voices and characters', ''], ['cta', 'Calls to action', ''], ['hookFormat', 'Hook formats', ''], ['channel', 'Channels', 'ideas pick any']];
   const jump = (id: string) => (e: React.MouseEvent) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const cadence = (delta: number) => { const v = d.config.cadenceWeeks + delta; if (v < 1 || v > 26) return; update(dd => { const from = dd.config.cadenceWeeks; dd.config.cadenceWeeks = v; addVersion(dd, 'Check-in cadence changed', { field: 'Check-in cadence', from: `every ${from} weeks`, to: `every ${v} weeks` }); }); };
   return <>
@@ -92,6 +96,15 @@ export function ConfigScreen() {
         <div className="cfg-item"><span className="k">Mission</span><Editable k="mission" text={d.config.mission} /></div>
         <div className="cfg-item"><span className="k">The person</span><Editable k="person" text={d.config.person} /></div>
       </div>
+      <div className="card cfg">
+        <div className="cfg-item"><span className="k">Their inner world <span className="chip" style={{ textTransform: 'none', letterSpacing: 0 }}>agents draft from it</span></span></div>
+        {IW.map(([f, l]) => <div className="cfg-item" key={f}><span className="k">{l}</span><Editable k={'iw.' + f} text={d.config.innerWorld?.[f] ?? ''} /></div>)}
+      </div>
+      <div className="card cfg">
+        <div className="cfg-item"><span className="k">Gut check</span><Editable k="gutQuestion" text={d.config.gutQuestion ?? ''} /></div>
+        {PERSONAS.map(p => <div className="cfg-item" key={p}><span className="k">{p}</span><Editable k={'persona.' + p} text={personaWants(d, p)} /></div>)}
+      </div>
+
       <div className="card cfg">
         <div className="cfg-item"><span className="k">Pillars</span></div>
         {d.pillars.map((p, n) => <div className="cfg-item pillar-row" key={p.name}><span className="dot" style={{ background: p.color }} /><div style={{ display: 'grid', gap: 2, minWidth: 0 }}><strong>{p.name}</strong><Editable k={'pillar' + n} text={p.desc} /><span className="muted" style={{ fontSize: 13 }}>Carries the through-line: {p.carries}</span></div></div>)}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { Data, Gut, Idea, OptKey } from '../lib/types';
+import { INNER_WORLD_LABEL, type Data, type Gut, type Idea, type InnerWorld, type OptKey } from '../lib/types';
 import { addDays, CUR_WEEK, md, today, wmd } from '../lib/dates';
-import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
+import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, personaWants, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
 import { closeSheet, findIdea, getData, openSheet, toast, update, useStore } from '../lib/store';
 import { go } from '../lib/router';
 import { Icon, NeedsTag, PEG, ProtoBar, Sheet, WaitingTag, asset } from '../components/ui';
@@ -9,7 +9,7 @@ import { Icon, NeedsTag, PEG, ProtoBar, Sheet, WaitingTag, asset } from '../comp
 /* A tappable word in the pitch paragraph. Solid underline: hers. Dashed: drafted by an agent. */
 function Bp({ i, k, text }: { i: Idea; k: string; text?: string }) {
   const v = (i as unknown as Record<string, unknown>)[k];
-  const empty = v === null || v === undefined || v === '';
+  const empty = (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) && !(k === 'story' && i.noStory);
   const d = getData();
   const cls = empty ? 'empty' : i.drafted.includes(k) ? 'is-drafted' : '';
   const ret = !empty && typeof v === 'string' && isRetired(d, k, v) ? ' (retired)' : '';
@@ -18,6 +18,8 @@ function Bp({ i, k, text }: { i: Idea; k: string; text?: string }) {
     {empty ? 'add ' + LABEL[k].toLowerCase() : (text || String(v)) + ret}</button>;
 }
 
+const listOf = (xs: string[]) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+
 function Pitch({ d, i }: { d: Data; i: Idea }) {
   const takeTxt = i.take ? `take #${i.take}, "${d.takes[i.take]?.short ?? ''}"` : '';
   const article = /^[aeiou]/i.test(i.pillar || 'x') ? 'An' : 'A';
@@ -25,7 +27,8 @@ function Pitch({ d, i }: { d: Data; i: Idea }) {
     {i.pillar ? article : 'A'} <Bp i={i} k="pillar" /> <Bp i={i} k="type" /> video in <Bp i={i} k="style" /> style, <Bp i={i} k="onCamera" />, voiced by <Bp i={i} k="voice" />.{' '}
     It should leave Alex feeling <Bp i={i} k="feeling" />, shows AI as <Bp i={i} k="harmHelp" />, argues <Bp i={i} k="take" text={takeTxt} /> and ends with <Bp i={i} k="cta" text={CTA_PHRASE[i.cta] || i.cta} />.{' '}
     {inSeries(i) ? <>It's episode {i.ep || '?'} of <Bp i={i} k="series" /></> : <>It's <Bp i={i} k="series" text="not part of a series" /></>}
-    {i.story ? <>, built on the story <Bp i={i} k="story" text={d.stories[i.story]?.title} /></> : <>, with <Bp i={i} k="story" text="no story from the bank" /></>}. Client safety: <Bp i={i} k="safety" />.
+    {i.story ? <>, built on the story <Bp i={i} k="story" text={d.stories[i.story]?.title} /></> : i.noStory ? <>, with <Bp i={i} k="story" text="no story from the bank" /></> : <>, with <Bp i={i} k="story" /></>}. Client safety: <Bp i={i} k="safety" />.{' '}
+    It's planned for <Bp i={i} k="channels" text={listOf(i.channels)} />{d.config.innerWorld && <> and speaks to <Bp i={i} k="innerWorld" text={listOf(i.innerWorld.map(w => INNER_WORLD_LABEL[w]))} /></>}.
   </p>;
 }
 
@@ -100,6 +103,8 @@ export function IdeaPage({ id }: { id: string }) {
             <div className="linkrow"><span className="k">Source</span><span>{i.sourceLink ? <a href={i.sourceLink.url} target="_blank" rel="noopener noreferrer">{i.sourceLink.label} {Icon.link}</a>
               : <span className="muted">{({ experience: 'Your own experience. No link.', agent: 'Your notes', research: 'Research', client: 'A client story. No link.', read: 'No link yet' } as Record<string, string>)[i.origin] || 'None yet'}</span>}</span></div>
             <div className="linkrow"><span className="k">Brief</span><span>{i.brief ? <span className="mono">{i.brief}</span> : <span className="muted">Orca writes the brief on the next pass</span>}</span></div>
+            {i.links.map((l, n) => <div className="linkrow" key={n}><span className="k">{l.label}</span><span><LinkOrPath url={l.url} /></span></div>)}
+            <div><button className="btn sm ghost" onClick={() => openSheet({ kind: 'links', id: i.id })}>{i.links.length ? 'Edit links' : 'Add a link'}</button></div>
           </div>
           {i.safety === 'blinded' && <div className="nox"><img className="felt-c" src={asset('nox')} alt="Nox the felt owl" /><span><strong>Blinded.</strong> Say "a team I worked with." No names on screen.</span></div>}
         </div>
@@ -135,7 +140,7 @@ export function IdeaPage({ id }: { id: string }) {
 
     <section className="section"><h2>Gut check</h2>
       <p className="gut-key">Would they keep watching? Tap a light to change it; it cycles TBD, yes, not sure, no. <span><i style={{ background: 'var(--go)' }} />yes</span><span><i style={{ background: 'var(--caution)' }} />not sure</span><span><i style={{ background: 'var(--gut-no)' }} />no</span></p>
-      <div className="gutlist">{PERSONAS.map(([p, w]) => {
+      <div className="gutlist">{PERSONAS.map(p => { const w = personaWants(d, p);
         const g = i.gut[p] ? GUT_CLASS[i.gut[p]!] : null;
         const cycle = () => update(dd => { const x = findIdea(dd, i.id)!; const order: (Gut | undefined)[] = [undefined, 'yes', 'not sure', 'no']; const nx = order[(order.indexOf(x.gut[p]) + 1) % 4]; if (nx) x.gut[p] = nx; else delete x.gut[p]; });
         return <div className="card gcard" key={p}>
@@ -159,30 +164,33 @@ export function IdeaPage({ id }: { id: string }) {
 /* ---------- Sheets for the Idea page ---------- */
 export function FieldSheet({ id, k }: { id: string; k: string }) {
   const { data: d } = useStore();
-  const i = findIdea(d, id)!;
   const [newVal, setNewVal] = useState('');
+  if (k === 'channels') return <ChannelsSheet id={id} />;
+  if (k === 'innerWorld') return <InnerWorldSheet id={id} />;
+  const i = findIdea(d, id)!;
   let opts: string[];
   if (k === 'pillar') opts = d.pillars.map(p => p.name);
   else if (k === 'take') opts = Object.keys(d.takes);
   else if (k === 'story') opts = ['', ...Object.keys(d.stories)];
   else if (k === 'series') opts = [NO_SERIES, ...d.opts.series];
   else opts = d.opts[k as OptKey];
-  const curVal = String((i as unknown as Record<string, unknown>)[k] ?? '');
+  // Story: '' is the decision "no story"; nothing is pressed while it isn't picked yet.
+  const curVal = k === 'story' && !i.story && !i.noStory ? '\u0000' : String((i as unknown as Record<string, unknown>)[k] ?? '');
   // A retired value stays on this idea until she picks another; it isn't offered to anything new.
-  if (curVal && !opts.includes(curVal) && k !== 'take' && k !== 'story' && !(k === 'series' && curVal === NO_SERIES)) opts = [curVal, ...opts];
+  if (curVal && curVal !== '\u0000' && !opts.includes(curVal) && k !== 'take' && k !== 'story' && !(k === 'series' && curVal === NO_SERIES)) opts = [curVal, ...opts];
   const drafted = i.drafted.includes(k);
   const label = (o: string) => k === 'take' ? <><span>#{o} {d.takes[+o].short}</span><small>{d.takes[+o].text}</small></>
     : k === 'type' && TYPE_HELP[o] ? <><span>{o}</span><small>{TYPE_HELP[o]}</small></>
-    : k === 'story' ? (o ? <>{d.stories[o].title} <small>{d.stories[o].onCamera}</small></> : 'No story')
+    : k === 'story' ? (o ? <>{d.stories[o].title} <small>{d.stories[o].onCamera}</small></> : <><span>N/A</span><small>It doesn't need a story from the bank.</small></>)
     : k === 'series' ? (o !== NO_SERIES ? <>{o} <small>next: episode {nextEp(d, o, i)}</small></> : 'Not part of a series')
     : <>{o}{isRetired(d, k, o) ? <small> (retired)</small> : null}</>;
   return <Sheet>
     <h3>{LABEL[k]}</h3>
     <p className="hint">{REHOOK[k] ? 'Changing this sets re-hook needed.' : 'Changing this keeps the hooks as they are.'}{drafted ? ' Drafted by an agent: confirm it or pick another.' : ''}{k === 'take' || k === 'story' ? ' From your bank.' : ''}</p>
-    {curVal && isRetired(d, k, curVal) && <p className="hint">"{curVal}" is retired. It stays on this idea until you pick another.</p>}
+    {curVal && curVal !== '\u0000' && isRetired(d, k, curVal) && <p className="hint">"{curVal}" is retired. It stays on this idea until you pick another.</p>}
     <div className="optlist">
       {k === 'type' && <p className="muted small">A week aims for 3 authority, 2 storyline, 1 personality and 1 follow the signal.</p>}
-      {opts.map(o => <button key={o || 'none'} className={`opt${k === 'take' || (k === 'type' && TYPE_HELP[o]) ? ' col' : ''}`} aria-pressed={curVal === o} onClick={() => { closeSheet(); setField(id, k, o); }}><span>{label(o)}</span></button>)}
+      {opts.map(o => <button key={o || 'none'} className={`opt${k === 'take' || (k === 'type' && TYPE_HELP[o]) || (k === 'story' && !o) ? ' col' : ''}`} aria-pressed={curVal === o} onClick={() => { closeSheet(); setField(id, k, o); }}><span>{label(o)}</span></button>)}
       {(k === 'series' || k === 'take') && <form className="opt" style={{ gap: 8 }} onSubmit={e => {
         e.preventDefault(); const v = newVal.trim(); if (!v) return; closeSheet();
         if (k === 'take') { let n = 0; update(dd => { n = addTake(dd, v, findIdea(dd, id)!.pillar); }); toast(`Saved to your takes bank as #${n}.`); setField(id, 'take', String(n)); }
@@ -263,5 +271,78 @@ export function ChatSheet({ id }: { id: string }) {
       <button className="btn primary" onClick={async () => { try { await navigator.clipboard.writeText(cmd); setCopied(true); } catch { toast("Couldn't copy here. Select the text and copy it."); } }}>{copied ? <>{Icon.check} Copied</> : 'Copy command'}</button>
     </div>
     <p className="muted small" style={{ marginTop: 10 }}>Next: an "Open in iTerm" button on your session manager. After Supabase: a request your Mac picks up, which also works from your phone.</p>
+  </Sheet>;
+}
+
+/** A web link opens in a new tab; a repo path shows as text to copy. */
+function LinkOrPath({ url }: { url: string }) {
+  return /^https?:\/\//i.test(url) ? <a href={url} target="_blank" rel="noopener noreferrer">{url.replace(/^https?:\/\/(www\.)?/i, '').slice(0, 48)} {Icon.link}</a> : <span className="mono">{url}</span>;
+}
+
+/* Links beyond the brief and the source: short brief, story card, storyboard, hooks file, assets. */
+export function LinksSheet({ id }: { id: string }) {
+  const { data: d } = useStore();
+  const i = findIdea(d, id)!;
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  return <Sheet>
+    <h3>Links</h3>
+    <p className="hint">The brief and the source have their own places. Add the rest here: a web link or a path in the repo.</p>
+    <div className="optlist">
+      {i.links.map((l, n) => <div className="opt" key={n} style={{ justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}><b>{l.label}</b> <small><LinkOrPath url={l.url} /></small></span>
+        <button className="btn sm ghost" onClick={() => update(dd => { const x = findIdea(dd, id)!; x.links = x.links.filter((_, k) => k !== n); }, `Removed "${l.label}".`)}>Remove</button></div>)}
+      <form className="opt" style={{ display: 'grid', gap: 8 }} onSubmit={e => {
+        e.preventDefault(); const u = url.trim(); if (!u) return;
+        const lb = label.trim() || u.split('/').filter(Boolean).pop() || u;
+        update(dd => { findIdea(dd, id)!.links.push({ label: lb, url: u }); }, `Added "${lb}".`); setLabel(''); setUrl('');
+      }}>
+        <input type="text" value={label} onChange={e => setLabel(e.target.value)} placeholder="What it is (story card, storyboard)" aria-label="Link label" />
+        <input type="text" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://... or marketing/tiktok/..." aria-label="Link or path" />
+        <button className="btn sm" type="submit">Add</button></form>
+    </div>
+  </Sheet>;
+}
+
+/* Channels: pick any. The list is in Config. */
+function ChannelsSheet({ id }: { id: string }) {
+  const { data: d } = useStore();
+  const i = findIdea(d, id)!;
+  const drafted = i.drafted.includes('channels');
+  const opts = [...d.opts.channel, ...i.channels.filter(c => !d.opts.channel.includes(c))];
+  const toggle = (c: string) => update(dd => {
+    const x = findIdea(dd, id)!;
+    x.channels = x.channels.includes(c) ? x.channels.filter(y => y !== c) : opts.filter(o => o === c || x.channels.includes(o));
+    x.drafted = x.drafted.filter(f => f !== 'channels');
+  });
+  return <Sheet>
+    <h3>Channels</h3>
+    <p className="hint">Pick every channel it's planned for. Changing this keeps the hooks as they are.{drafted ? ' Drafted by an agent: confirm it or change it.' : ''}</p>
+    <div className="optlist">{opts.map(c => <button key={c} className="opt" aria-pressed={i.channels.includes(c)} onClick={() => toggle(c)}>
+      <span>{c}{isRetired(d, 'channel', c) ? <small> (retired)</small> : null}</span></button>)}</div>
+    <div className="sheet-actions">{drafted && <button className="btn" onClick={() => update(dd => { const x = findIdea(dd, id)!; x.drafted = x.drafted.filter(f => f !== 'channels'); }, 'Confirmed.')}>Confirm as drafted</button>}
+      <button className="btn primary" onClick={closeSheet}>Done</button></div>
+  </Sheet>;
+}
+
+/* Which parts of the person's inner world it speaks to (from Config). Optional; pick any. */
+function InnerWorldSheet({ id }: { id: string }) {
+  const { data: d } = useStore();
+  const i = findIdea(d, id)!;
+  const iw = d.config.innerWorld ?? {};
+  const keys = (Object.keys(INNER_WORLD_LABEL) as (keyof InnerWorld)[]).filter(k => iw[k]);
+  const toggle = (k: keyof InnerWorld) => update(dd => {
+    const x = findIdea(dd, id)!;
+    // Adding keeps whatever was there (an agent's pick, or a field since blanked in Config), in Config's order.
+    const order = Object.keys(INNER_WORLD_LABEL);
+    x.innerWorld = x.innerWorld.includes(k) ? x.innerWorld.filter(y => y !== k) : [...x.innerWorld, k].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    x.drafted = x.drafted.filter(f => f !== 'innerWorld');
+  });
+  return <Sheet>
+    <h3>Speaks to</h3>
+    <p className="hint">Optional. Which part of the person's inner world this one connects to. From Config.</p>
+    <div className="optlist">{keys.map(k => <button key={k} className="opt col" aria-pressed={i.innerWorld.includes(k)} onClick={() => toggle(k)}>
+      <span><span>{INNER_WORLD_LABEL[k]}</span><small>{iw[k]}</small></span></button>)}</div>
+    <div className="sheet-actions"><button className="btn primary" onClick={closeSheet}>Done</button></div>
   </Sheet>;
 }

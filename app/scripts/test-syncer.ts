@@ -13,6 +13,8 @@ class FakeDb {
   tables: Record<string, Map<string, Row>> = {};
   clock = 0;
   failNext = 0; // make the next N writes fail, like a dropped connection
+  /** A rule the real database enforces (a check constraint): writes it rejects get Postgres's 23514. */
+  reject?: (table: string, row: Row) => boolean;
   stamp() { return `t${String(++this.clock).padStart(6, '0')}`; }
   t(name: string) { return (this.tables[name] ??= new Map()); }
   from(name: string) { return new Query(this, name); }
@@ -38,12 +40,17 @@ class Query implements PromiseLike<any> {
     const match = (r: Row) => this.filters.every(([c, v]) => String(r[c]) === String(v));
     if (this.op === 'insert') {
       for (const r of this.payload) if (tb.has(String(r[pk]))) return { data: null, error: { code: '23505', message: 'duplicate key' } };
+      for (const r of this.payload) if (this.db.reject?.(this.name, r)) return { data: null, error: { code: '23514', message: 'violates check constraint (test)' } };
       const out = this.payload.map((r: Row) => { const x = { ...structuredClone(r), updated_at: this.db.stamp() }; tb.set(String(r[pk]), x); return x; });
       return { data: out, error: null };
     }
     if (this.op === 'update') {
       const out: Row[] = [];
-      for (const [k, r] of tb) if (match(r)) { const x = { ...r, ...structuredClone(this.payload), updated_at: this.db.stamp() }; tb.set(k, x); out.push(x); }
+      for (const [k, r] of tb) if (match(r)) {
+        const x = { ...r, ...structuredClone(this.payload), updated_at: this.db.stamp() };
+        if (this.db.reject?.(this.name, x)) return { data: null, error: { code: '23514', message: 'violates check constraint (test)' } };
+        tb.set(k, x); out.push(x);
+      }
       return { data: out, error: null };
     }
     let rows = [...tb.values()].filter(match);
@@ -72,6 +79,7 @@ function device(d: Data, stamps: Stamps, db: FakeDb) {
     onVersions: () => { log.versions++; },
     onError: m => { log.errors.push(m); },
     onConflict: c => { log.conflicts.push(c); },
+    onRefused: m => { log.errors.push(m); },
     onRenumberTake: (f, t) => { log.renumbered.push([f, t]); },
   }, db as any);
   return {
@@ -264,6 +272,86 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   await settle(a);
   const last = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot;
   check('series retire + add: consistent', !last.opts.series.includes(y) && last.retired.series.includes(y) && last.opts.series.includes('NEWX'), JSON.stringify([last.opts.series, last.retired.series]));
+}
+
+{ // 16. (step 2 review 1) Phone decides "no story" while the laptop picks a story: never both in the row.
+  const b0 = structuredClone(base); const x0 = b0.ideas.find(i => i.id === id)!; x0.story = null; x0.noStory = false;
+  const { db, stamps } = freshDb(b0); const a = device(b0, stamps, db), b = device(b0, stamps, db);
+  db.reject = (t, r) => t === 'ideas' && !!r.no_story && r.story_key !== null;
+  const sk = Object.keys(b0.stories)[0];
+  a.change(x => { x.ideas.find(i => i.id === id)!.story = sk; });
+  await settle(a);
+  b.change(x => { const i = x.ideas.find(i => i.id === id)!; i.story = null; i.noStory = true; });
+  await settle(b);
+  const r = idea(db);
+  check('no story vs a story: written together, clash reported', !(r.no_story && r.story_key) && r.no_story === true && b.log.conflicts.some(c => !!c), JSON.stringify({ no_story: r.no_story, story_key: r.story_key, c: b.log.conflicts }));
+  check('no story vs a story: nothing refused', !b.log.errors.length, JSON.stringify(b.log.errors));
+}
+{ // 17. (step 2 review 3) A config from before the channel list: retiring one channel keeps the other five.
+  const b0 = structuredClone(base); const { db, stamps } = freshDb(b0);
+  const top = [...db.t('config_versions').values()][0]; delete top.snapshot.opts.channel; delete top.snapshot.retired.channel;
+  const a = device(b0, stamps, db);
+  a.change(x => { x.opts.channel = x.opts.channel.filter(c => c !== 'community'); x.retired.channel.push('community'); x.versions.unshift({ n: 99, date: '', label: 'retire channel', changes: [], key: 'c1' }); });
+  await settle(a);
+  const last = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot;
+  check('channel list from defaults: retire keeps the rest', last.opts.channel.length === 5 && !last.opts.channel.includes('community') && last.retired.channel.includes('community'), JSON.stringify([last.opts.channel, last.retired.channel]));
+}
+{ // 18. (step 2 review 4) A tab loaded before the inner world arrived edits one field: the other five survive.
+  const b0 = structuredClone(base); const { db, stamps } = freshDb(b0);
+  const a = device(b0, stamps, db); // her tab: no inner world, no personas
+  const agent = device(b0, stamps, db);
+  agent.change(x => { x.config.innerWorld = { coreProblem: 'CP', hurting: 'H', tried: 'T', thinking: 'TH', afraid: 'A', wants: 'W' }; x.config.personas = { Dawn: 'd', Alex: 'a', Paloma: 'p' }; x.versions.unshift({ n: 99, date: '', label: 'v12', changes: [], key: 'v12' }); });
+  await settle(agent);
+  a.change(x => { x.config.innerWorld = { ...x.config.innerWorld, wants: 'MINE' }; x.config.personas = { ...x.config.personas, Dawn: 'MINE' }; x.versions.unshift({ n: 99, date: '', label: 'edit', changes: [], key: 'e1' }); });
+  await settle(a);
+  const last = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot.config;
+  check('inner world: one field edited, the rest kept', last.innerWorld.wants === 'MINE' && last.innerWorld.coreProblem === 'CP' && last.innerWorld.afraid === 'A', JSON.stringify(last.innerWorld));
+  check('personas: one edited, the rest kept', last.personas.Dawn === 'MINE' && last.personas.Alex === 'a' && last.personas.Paloma === 'p', JSON.stringify(last.personas));
+}
+{ // 19. (step 2 review 1) A row the database refuses is reported and skipped; the rest still save, nothing retries forever.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  const other = base.ideas.find(i => !i.past && i.id !== id)!.id;
+  db.reject = (t, r) => t === 'ideas' && r.id === id && r.title === 'BAD';
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'BAD'; x.ideas.find(i => i.id === other)!.title = 'GOOD'; x.config.mission = 'saved too'; x.versions.unshift({ n: 99, date: '', label: 'm', changes: [], key: 'm1' }); });
+  await settle(a);
+  const lastCfg = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot.config;
+  check('refused row: others and config still saved', db.t('ideas').get(other)!.title === 'GOOD' && lastCfg.mission === 'saved too', db.t('ideas').get(other)!.title);
+  check('refused row: reported, idle, refresh asked for', a.s.idle() && a.log.errors.some(e => /refused your change/.test(e)) && a.log.conflicts.length > 0, JSON.stringify(a.log));
+}
+{ // 20. Channels and links merge item by item: phone adds LinkedIn while the laptop adds a link and YouTube.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db), b = device(base, stamps, db);
+  a.change(x => { const i = x.ideas.find(i => i.id === id)!; i.channels = [...i.channels, 'LinkedIn']; });
+  b.change(x => { const i = x.ideas.find(i => i.id === id)!; i.channels = [...i.channels, 'YouTube']; i.links = [...i.links, { label: 'Card', url: 'a/b.md' }]; });
+  await settle(a, b);
+  const r = idea(db);
+  check('channels and links: both sides kept', r.channels.includes('LinkedIn') && r.channels.includes('YouTube') && r.links.length === 1, JSON.stringify([r.channels, r.links]));
+}
+
+{ // 21. (round 2, L1) A new idea the database refuses, then undone before the reload: nothing jams.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  db.reject = (t, r) => t === 'ideas' && r.title === 'REFUSED';
+  const nu = structuredClone(base.ideas.find(i => !i.past)!); nu.id = 'new-refused'; nu.title = 'REFUSED';
+  a.change(x => { x.ideas.push(nu); });
+  await settle(a);
+  a.change(x => { x.ideas = x.ideas.filter(i => i.id !== 'new-refused'); x.config.mission = 'after undo'; x.versions.unshift({ n: 99, date: '', label: 'u', changes: [], key: 'u1' }); });
+  await settle(a);
+  const lastCfg = [...db.t('config_versions').values()].sort((p, q) => p.n - q.n).pop()!.snapshot.config;
+  check('refused insert + undo: idle, later saves land', a.s.idle() && lastCfg.mission === 'after undo' && !db.t('ideas').has('new-refused'), JSON.stringify({ idle: a.s.idle(), m: lastCfg.mission }));
+  check('refused insert: reported', a.log.errors.some(e => /refused your change/.test(e)), JSON.stringify(a.log.errors));
+}
+{ // 22. (round 2, M1) Signed out mid-save (permission denied): her change is kept and retried, never dropped.
+  const { db, stamps } = freshDb(base); const a = device(base, stamps, db);
+  const orig = Query.prototype.then; let denied = 2;
+  (Query.prototype as any).then = function (this: any, ok: any, bad: any) {
+    if (denied > 0 && this.op === 'update') { denied--; return Promise.resolve({ data: null, error: { code: '42501', message: 'permission denied (test)' } }).then(ok, bad); }
+    return orig.call(this, ok, bad);
+  };
+  a.change(x => { x.ideas.find(i => i.id === id)!.title = 'KEPT'; });
+  await sleep(600);
+  check('permission denied: not marked saved', !a.s.idle(), 'idle too early');
+  await sleep(9000); await settle(a);
+  Query.prototype.then = orig;
+  check('permission denied: saved on retry', idea(db).title === 'KEPT', idea(db).title);
 }
 
 console.log(failures ? `\n${failures} failed` : '\nAll passed');

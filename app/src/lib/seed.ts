@@ -3,7 +3,7 @@
  * the story bank from story-bank.md. Missing fields are filled in and marked drafted.
  * Privacy: no client names, client file paths or keys. Client stories stay blinded.
  * Past weeks (Nov 9, Nov 16) are example rows until the real history is migrated (stage E). */
-import type { Beat, Data, Hook, Idea, Look, ScriptLine } from './types';
+import { DEFAULT_CHANNELS, type Beat, type Data, type Hook, type Idea, type Look, type ScriptLine } from './types';
 import { CUR_WEEK } from './dates';
 
 const H = (spoken: string, onscreen: string, frame: string, format: string, payoff: string, rec = false): Hook => ({ spoken, onscreen, frame, format, payoff, rec });
@@ -15,7 +15,7 @@ const b = (t: string): Beat => ({ t });
 
 const base: Omit<Idea, 'id' | 'title' | 'status'> = {
   week: null, postDate: null, summary: '', pillar: '', type: '', style: '', onCamera: '', voice: 'Mariena', feeling: '', harmHelp: '', cta: '',
-  take: null, story: null, series: '', ep: null, safety: 'clear', origin: 'agent', brief: '', sourceLink: null,
+  take: null, story: null, series: '', ep: null, safety: 'clear', origin: 'agent', brief: '', sourceLink: null, noStory: false, channels: ['TikTok'], links: [], innerWorld: [],
   hooks: [], chosen: null, rehook: null, beats: [], gut: {}, tips: null, notes: [], drafted: [], script: [], prep: [], slate: '',
   look: L('', '', '', '', ''),
 };
@@ -361,10 +361,11 @@ export function seed(): Data {
       hookFormat: ['question', 'bold claim', 'story in motion', 'reframe', 'visual reveal', 'stakes'],
       series: ['Workplace advice', 'AI-ITA', 'Tales From Tech Support', 'Old Tech Panics', 'Unfolding now: the agent course'],
       safety: ['blinded', 'clear'],
+      channel: [...DEFAULT_CHANNELS],
     },
     retired: {
       type: [], feeling: ['understood', 'called out', 'laughed', 'validated', 'hopeful', 'proud'],
-      style: ['my own ideas'], onCamera: [], voice: [], harmHelp: [], cta: [], hookFormat: [], series: ['Chatbot Court'], safety: [],
+      style: ['my own ideas'], onCamera: [], voice: [], harmHelp: [], cta: [], hookFormat: [], series: ['Chatbot Court'], safety: [], channel: [],
     },
     pillars: [
       { name: 'Value', color: 'var(--forest)', desc: 'Programs that build AI capability and drive business results. My programs in the wild live here, often as a series.', carries: 'Programs where teams shape it themselves' },

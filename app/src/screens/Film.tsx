@@ -59,7 +59,7 @@ function VidCard({ d, i, open, focusMode, onGrip }: { d: Data; i: Idea; open: bo
         : <div className="nohook"><span>No hook picked yet</span><button className="btn sm" onClick={() => openIdea(i.id)}>Pick a hook</button></div>}
       {i.prep.length > 0 && <div><span className="say-l">Prep for this one</span><ul className="checklist vprep" style={{ marginTop: 8 }}>{i.prep.map((p, n) => <Ck key={n} d={d} k={`${i.id}:${n}`} text={p} />)}</ul></div>}
       {i.beats.length > 0 && <div><span className="say-l">Beats</span><Beats i={i} style={{ marginTop: 8 }} /></div>}
-      <div className="film-tips"><span className="say-l">Director's tips</span>{PERSONAS.map(([p]) => <p key={p}><b>{p}:</b> {tips[p]}</p>)}</div>
+      <div className="film-tips"><span className="say-l">Director's tips</span>{PERSONAS.map(p => <p key={p}><b>{p}:</b> {tips[p]}</p>)}</div>
       <div className="film-grid two">
         <div><span className="say-l">Voice</span><p className="v">{i.voice}</p></div>
         <div><span className="say-l">Feeling</span><p className="v">{i.feeling}</p></div>

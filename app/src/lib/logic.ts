@@ -5,7 +5,10 @@ import { findIdea, getData, toast, update } from './store';
 export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export const WEEK_STATUSES: Status[] = ['on deck', 'in progress', 'scheduled', 'published'];
 export const FLOW: Status[] = ['proposed', 'on deck', 'in progress', 'scheduled', 'published'];
-export const PERSONAS: [import('./types').Persona, string][] = [['Dawn', 'wants it good for people'], ['Alex', 'wants the how'], ['Paloma', 'wants the plot']];
+export const PERSONAS: import('./types').Persona[] = ['Dawn', 'Alex', 'Paloma'];
+const PERSONA_DEFAULT: Record<import('./types').Persona, string> = { Dawn: 'wants it good for people', Alex: 'wants the how', Paloma: 'wants the plot' };
+/** What each gut-check person wants, from Config (foundation.md), until a config version carries it. */
+export const personaWants = (d: Data, p: import('./types').Persona) => d.config.personas?.[p] || PERSONA_DEFAULT[p];
 export const DEFAULT_TIPS = { Dawn: 'Say who it helps, early.', Alex: 'Give one step they can try Monday.', Paloma: 'Open on the moment, not the lesson.' };
 
 export const pillarColor = (d: Data, n: string) => d.pillars.find(p => p.name === n)?.color || 'var(--line)';
@@ -139,7 +142,7 @@ export const nextTakeNumber = (d: Data) => Math.max(0, ...Object.keys(d.takes).m
 
 /* ---------- Idea fields ---------- */
 export const REHOOK: Record<string, string> = { feeling: 'feeling', take: 'take', summary: 'angle', style: 'content style', onCamera: 'on-camera setup' };
-export const LABEL: Record<string, string> = { pillar: 'Pillar', type: 'Type', feeling: 'Feeling', style: 'Content style', onCamera: 'On camera', voice: 'Voice', harmHelp: 'Harm, help or neutral', cta: 'Call to action', take: 'Take', story: 'Story', series: 'Series', safety: 'Client safety', summary: 'The angle' };
+export const LABEL: Record<string, string> = { pillar: 'Pillar', type: 'Type', feeling: 'Feeling', style: 'Content style', onCamera: 'On camera', voice: 'Voice', harmHelp: 'Harm, help or neutral', cta: 'Call to action', take: 'Take', story: 'Story', series: 'Series', safety: 'Client safety', summary: 'The angle', channels: 'Channels', innerWorld: 'Inner world' };
 export const LOOK: [keyof Idea['look'], string][] = [['setup', 'Setup'], ['outfit', 'Outfit'], ['location', 'Location'], ['props', 'Props'], ['edit', 'Edit notes']];
 export const CTA_PHRASE: Record<string, string> = { none: 'no call to action', follow: 'a follow ask', Mellonmail: 'a Mellonmail plug', 'resource landing page': 'a resource link', 'GitHub link': 'a GitHub link', 'comment question': 'a comment question' };
 
@@ -154,7 +157,7 @@ export function setField(id: string, k: string, v: string) {
     const i = findIdea(d, id)!; let from: unknown;
     if (k.startsWith('look.')) { const lk = k.slice(5) as keyof Idea['look']; from = i.look[lk]; i.look[lk] = v; }
     else if (k === 'take') { from = i.take; i.take = v ? Number(v) : null; }
-    else if (k === 'story') { from = i.story; i.story = v || null; }
+    else if (k === 'story') { from = i.story ?? (i.noStory ? '' : '(not picked)'); i.story = v || null; i.noStory = !v; }
     else if (k === 'series') { from = i.series; i.series = v; i.ep = v && v !== NO_SERIES ? (from === v ? i.ep : nextEp(d, v, i)) : null; }
     else { from = (i as unknown as Record<string, unknown>)[k]; (i as unknown as Record<string, unknown>)[k] = v; }
     const wasDrafted = i.drafted.includes(k);

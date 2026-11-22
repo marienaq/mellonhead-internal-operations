@@ -139,7 +139,7 @@ export function AddIdeaSheet() {
       dd.ideas.push({
         id, title: title.trim(), status: dest, week: dest === 'on deck' ? CUR_WEEK : null, postDate: null, summary: text.trim(),
         pillar: '', type: '', style: '', onCamera: '', voice: 'Mariena', feeling: '', harmHelp: '', cta: '',
-        take: takeN, story: storyKey, series: '', ep: null, safety: src === 'client' ? 'blinded' : 'clear', origin: src, brief: '', sourceLink,
+        take: takeN, story: storyKey, series: '', ep: null, safety: src === 'client' ? 'blinded' : 'clear', origin: src, brief: '', sourceLink, noStory: false, channels: [], links: [], innerWorld: [],
         hooks: [], chosen: null, rehook: null, beats: [], gut: {}, tips: null, drafted: [], script: [], prep: [], slate: '',
         look: { setup: '', outfit: '', location: '', props: '', edit: '' }, added: Date.now(),
         notes: [{ who: 'You in the app', text: 'Added by hand.' + (storyKey ? ' Saved to the story bank too.' : '') }],

@@ -6,7 +6,7 @@ import { go, useRoute } from './lib/router';
 import { Icon, ResetSheet, SignIn, Toast } from './components/ui';
 import { AddFromIdeasSheet, AddIdeaSheet, IdeasScreen, OnDeckSheet, RejectSheet } from './screens/Ideas';
 import { PlanScreen } from './screens/Plan';
-import { ChatSheet, DateSheet, FieldSheet, IdeaPage, OwnHookSheet, TextSheet } from './screens/IdeaPage';
+import { ChatSheet, DateSheet, LinksSheet, FieldSheet, IdeaPage, OwnHookSheet, TextSheet } from './screens/IdeaPage';
 import { FilmScreen } from './screens/Film';
 import { ConfigScreen } from './screens/Config';
 
@@ -28,6 +28,7 @@ function SheetHost() {
     case 'date': return <DateSheet key={key} id={s.id} />;
     case 'own': return <OwnHookSheet key={key} id={s.id} />;
     case 'chat': return <ChatSheet key={key} id={s.id} />;
+    case 'links': return <LinksSheet key={key} id={s.id} />;
     case 'add': return <AddIdeaSheet key={key} />;
     case 'addFromIdeas': return <AddFromIdeasSheet key={key} />;
     case 'reset': return <ResetSheet key={key} />;

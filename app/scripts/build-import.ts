@@ -52,7 +52,7 @@ for (const line of rows) {
     id, title, status, week: null, postDate: null, summary: '', pillar: '', type: '',
     style: (STYLE_BY_PREFIX.find(([p]) => title.startsWith(p)) || [, ''])[1]!, onCamera: '', voice: 'Mariena',
     feeling: FEEL[first] || '', harmHelp: '', cta: '', take: null, story: null, series: '', ep: null, safety: 'clear',
-    origin: 'read', brief: card.replace('marketing/tiktok/story-formats/', ''), sourceLink: null, hooks: [], chosen: null, rehook: null,
+    origin: 'read', brief: card.replace('marketing/tiktok/story-formats/', ''), sourceLink: null, noStory: false, channels: [], links: [], innerWorld: [], hooks: [], chosen: null, rehook: null,
     beats: [], gut: {}, tips: null, notes: [], drafted: FEEL[first] ? ['feeling', 'style'] : ['style'], script: [], prep: [], slate: '',
     look: { setup: '', outfit: '', location: '', props: '', edit: '' },
   });

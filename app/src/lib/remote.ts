@@ -4,7 +4,7 @@
  * Only the publishable key is used here (safe in a browser: row-level security lets only MQ's login in).
  * Nothing is ever deleted: a row that disappears locally (for example, undoing "add idea") is archived. */
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
-import type { Block, Data, Idea, Persona, Gut } from './types';
+import { DEFAULT_CHANNELS, type Block, type Data, type Idea, type Persona, type Gut } from './types';
 import { CUR_WEEK, syncWeek } from './dates';
 
 const env = ((import.meta as unknown as { env?: Record<string, string> }).env) ?? {};
@@ -27,7 +27,11 @@ export async function signInWithGoogle() {
 export async function signOut() { await sb?.auth.signOut(); }
 
 type Row = Record<string, unknown>;
-const must = <T,>(r: { data: T | null; error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); return r.data as T; };
+const must = <T,>(r: { data: T | null; error: { message: string; code?: string } | null }) => { if (r.error) throw Object.assign(new Error(r.error.message), { code: r.error.code }); return r.data as T; };
+/** The database refused the row's values (a rule or a bad value: Postgres classes 22 and 23). Retrying the same write
+ * can't succeed, so it's reported and skipped instead of blocking every save after it. Anything else (signed out,
+ * permission, a column the database doesn't have yet, the network) keeps her change and retries. */
+const permanent = (e: unknown) => /^(22|23)/.test((e as { code?: string })?.code ?? '');
 
 /* ---------- Load ---------- */
 /** When each row was last changed in the database, by table and key. The syncer uses these to notice
@@ -56,7 +60,9 @@ export async function loadWithStamps(c: SupabaseClient<any, any, any> = sb as un
     ideas: ideas.map(fromIdeaRow),
     takes: Object.fromEntries(takes.map(t => [t.n as number, { short: t.short as string, text: t.text as string, pillar: t.pillar as string, onCamera: t.on_camera as string }])),
     stories: Object.fromEntries(stories.map(s => [s.key as string, { title: s.title as string, pillar: s.pillar as string, known: s.known as string, missing: s.missing as string, onCamera: s.on_camera as string }])),
-    opts: snap.opts, retired: snap.retired, pillars: snap.pillars, config: snap.config, targets: snap.targets,
+    // Configs saved before the channel list existed get the default one (config version 12 adds it for real).
+    opts: { ...snap.opts, channel: snap.opts.channel ?? [...DEFAULT_CHANNELS] }, retired: { ...snap.retired, channel: snap.retired.channel ?? [] },
+    pillars: snap.pillars, config: snap.config, targets: snap.targets,
     versions: versions.map(v => ({ n: v.n as number, date: String(v.created_at).slice(0, 10), label: v.label as string, changes: v.changes as Data['versions'][number]['changes'] })),
     includeProposed: !!prefs?.include_proposed,
     locked: {}, filmed: {}, prepDone: {}, ros: null,
@@ -88,6 +94,7 @@ function fromIdeaRow(r: Row): Idea {
     summary: r.summary as string, pillar: r.pillar as string, type: r.type as string, style: r.style as string, onCamera: r.on_camera as string,
     voice: r.voice as string, feeling: r.feeling as string, harmHelp: r.harm_help as string, cta: r.cta as string, ctaLink: (r.cta_link as string) || undefined,
     take: r.take_n as number | null, story: r.story_key as string | null, series: r.series as string, ep: r.ep as number | null,
+    noStory: !!r.no_story, channels: (r.channels as string[] | undefined) ?? [], links: (r.links as Idea['links'] | undefined) ?? [], innerWorld: (r.inner_world as Idea['innerWorld'] | undefined) ?? [],
     safety: r.safety as Idea['safety'], origin: r.origin as Idea['origin'], brief: r.brief as string,
     sourceLink: r.source_url ? { label: (r.source_label as string) || (r.source_url as string), url: r.source_url as string } : null,
     hooks: r.hooks as Idea['hooks'], chosen, ownHook: (r.own_hook as string) || undefined, rehook: r.rehook as Idea['rehook'],
@@ -106,6 +113,7 @@ export function rowsOf(d: Data) {
       id: i.id, title: i.title, status: i.status, week: i.week, post_date: i.postDate, summary: i.summary, pillar: i.pillar, type: i.type,
       style: i.style, on_camera: i.onCamera, voice: i.voice, feeling: i.feeling, harm_help: i.harmHelp, cta: i.cta, cta_link: i.ctaLink ?? null,
       take_n: i.take, story_key: i.story, series: i.series, ep: i.ep, safety: i.safety, origin: i.origin, brief: i.brief,
+      no_story: i.noStory, channels: i.channels, links: i.links, inner_world: i.innerWorld,
       source_label: i.sourceLink?.label ?? null, source_url: i.sourceLink?.url ?? null, hooks: i.hooks,
       chosen: i.chosen === null ? null : String(i.chosen), own_hook: i.ownHook ?? null, rehook: i.rehook, beats: i.beats, gut: i.gut, tips: i.tips,
       notes: i.notes, drafted: i.drafted, script: i.script, prep: i.prep,
@@ -146,13 +154,17 @@ const PK = { ideas: 'id', takes: 'n', stories: 'key', weeks: 'week', prefs: 'id'
 type Table = keyof typeof PK;
 const TABLES: Table[] = ['takes', 'stories', 'ideas', 'weeks', 'prefs']; // takes and stories first: ideas reference them
 const SET_COLS = new Set(['prep_done', 'general_prep_done']);
-const APPEND_COLS = new Set(['notes']);
+// Merged item by item with the database's copy, so two places adding to them both keep their adds.
+const APPEND_COLS = new Set(['notes', 'channels', 'links', 'inner_world']);
+/** Columns that are one fact together: written together, so a merge can't combine one side's half with the other's. */
+const COUPLED: string[][] = [['story_key', 'no_story']];
 
 /** JSON with object keys sorted, so jsonb from Postgres (which reorders keys) compares equal to the same value here. */
 export function canon(v: unknown): string {
   return JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, (x as Row)[k]])) : x));
 }
 const same = (a: unknown, b: unknown) => canon(a) === canon(b);
+const isPlain = (x: unknown): x is Row => !!x && typeof x === 'object' && !Array.isArray(x);
 
 /** Merge a list column: start from theirs, apply what this tab added and removed since its base. */
 function mergeList(col: string, base: unknown, mine: unknown, theirs: unknown): unknown[] {
@@ -173,6 +185,8 @@ export type SyncHooks = {
   onError: (msg: string) => void;
   /** Rows changed elsewhere were merged; reload to show them. `clash` names rows where her change replaced someone else's. */
   onConflict: (clash: string | null) => void;
+  /** The database refused these rows' values; her change to them is dropped and the screen reloads to what's saved. */
+  onRefused: (msg: string) => void;
   /** A new take's number was already used in the database (another device, an agent, or an archived take): it was saved as `to`. */
   onRenumberTake: (from: number, to: number) => void;
 };
@@ -205,7 +219,7 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
       // New here. Insert; if the key is already taken, it isn't new after all.
       const ins = await db.from(t).insert({ ...row }).select('updated_at');
       if (!ins.error) { stamps[t][k] = (ins.data as Row[])[0]?.updated_at as string; return row; }
-      if ((ins.error as { code?: string }).code !== '23505') throw new Error(ins.error.message);
+      if ((ins.error as { code?: string }).code !== '23505') throw Object.assign(new Error(ins.error.message), { code: (ins.error as { code?: string }).code });
       if (t === 'takes') throw Object.assign(new Error('take number taken'), { takeTaken: true });
       // Another device created the same key (for example this week's row): merge into theirs below, with no base.
     }
@@ -255,6 +269,7 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
   async function flush(d: Data) {
     const next = snapshotOf(d);
     const out = { merged: false, clashes: [] as string[] };
+    const refused: string[] = [];
     const takeMap = new Map<number, number>();
     for (const t of TABLES) {
       for (const [k, row0] of Object.entries(next.rows[t])) {
@@ -262,10 +277,18 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
         if (t === 'ideas' && takeMap.has(row.take_n as number)) row = { ...row, take_n: takeMap.get(row.take_n as number) };
         const base = saved.rows[t][k];
         const cols: Row = {};
-        if (base) { for (const c of Object.keys(row)) if (!same(row[c], base[c])) cols[c] = row[c]; if (!Object.keys(cols).length) continue; }
+        if (base) {
+          for (const c of Object.keys(row)) if (!same(row[c], base[c])) cols[c] = row[c];
+          if (!Object.keys(cols).length) continue;
+          for (const g of COUPLED) if (g.some(c => c in cols)) for (const c of g) if (c in row) cols[c] = row[c];
+        }
         try {
           saved.rows[t][k] = await writeRow(t, k, base ? cols : row, base, row, out);
         } catch (e) {
+          if (permanent(e)) {
+            // Skip it, and reload so her screen shows what the database actually has.
+            refused.push(`${label(t, k, row)} (${(e as Error).message})`); saved.rows[t][k] = row; unseen.add(`${t}:${k}`); out.merged = true; continue;
+          }
           if (!(e as { takeTaken?: boolean }).takeTaken) throw e;
           const to = await nextFreeTake([...Object.keys(next.rows.takes), ...takeMap.values()].map(String));
           const moved = { ...row, n: to };
@@ -279,11 +302,16 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
       // Gone locally (an undo): archive, never delete. Weeks and prefs never disappear.
       if (t === 'ideas' || t === 'takes' || t === 'stories')
         for (const k of Object.keys(saved.rows[t])) if (!(k in next.rows[t]) && !(t === 'takes' && [...takeMap.values()].includes(Number(k)))) {
-          await writeRow(t, k, { archived: true }, saved.rows[t][k], { ...saved.rows[t][k], archived: true }, out);
+          // Never reached the database (its insert was refused): nothing to archive.
+          if (stamps[t][k]) {
+            try { await writeRow(t, k, { archived: true }, saved.rows[t][k], { ...saved.rows[t][k], archived: true }, out); }
+            catch (e) { if (!permanent(e)) throw e; refused.push(label(t, k, saved.rows[t][k])); out.merged = true; }
+          }
           delete saved.rows[t][k];
         }
     }
     if (next.config !== saved.config) await saveConfig(d, JSON.parse(next.config), out);
+    if (refused.length) hooks.onRefused(`The database refused your change to ${refused.slice(0, 2).join(' and ')}${refused.length > 2 ? ` and ${refused.length - 2} more` : ''}. Showing what's saved`);
     if (out.clashes.length || out.merged) hooks.onConflict(out.clashes.length ? out.clashes.slice(0, 2).join(' and ') + (out.clashes.length > 2 ? ` and ${out.clashes.length - 2} more` : '') : null);
   }
 
@@ -307,7 +335,18 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
           const merged: Row = { ...th };
           for (const f of new Set([...Object.keys(m), ...Object.keys(bs)])) if (!same(m[f], bs[f])) {
             // Option lists merge item by item (her adds and removes over theirs); other values are taken whole.
-            if ((sec === 'opts' || sec === 'retired') && Array.isArray(m[f])) { merged[f] = mergeList(f, bs[f], m[f], th[f]); continue; }
+            // A list missing from theirs (a config saved before it existed) starts from her base, not from empty.
+            if ((sec === 'opts' || sec === 'retired') && Array.isArray(m[f])) { merged[f] = mergeList(f, bs[f], m[f], f in th ? th[f] : bs[f]); continue; }
+            // Objects inside config (the inner world, the gut-check people) merge one level down, field by field.
+            if (sec === 'config' && isPlain(m[f])) {
+              const mf = m[f] as Row, bf = (isPlain(bs[f]) ? bs[f] : {}) as Row, tf = (isPlain(th[f]) ? th[f] : {}) as Row;
+              const inner: Row = { ...tf };
+              for (const g of new Set([...Object.keys(mf), ...Object.keys(bf)])) if (!same(mf[g], bf[g])) {
+                if (g in mf) inner[g] = mf[g]; else delete inner[g];
+                if (someoneElse && !same(tf[g], bf[g]) && !same(tf[g], mf[g])) out.clashes.push(`config: ${f}.${g}`);
+              }
+              merged[f] = inner; continue;
+            }
             if (f in m) merged[f] = m[f]; else delete merged[f];
             if (someoneElse && !same(th[f], bs[f]) && !same(th[f], m[f])) out.clashes.push(`config: ${f}`);
           }
