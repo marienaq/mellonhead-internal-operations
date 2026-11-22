@@ -1,7 +1,7 @@
 /* Tests for "Make hooks and storyboard" (netlify/lib/story.ts), with a fake database and a fake Claude.
  * No network, no cost. Run: npx tsx scripts/test-story.ts */
 import {
-  answerText, ask, cantRun, cardOf, folderOf, hooksPathFor, hooksSchema, loadContext, REFERENCES, runStory, SKILL_HOOKS, SKILL_STORYBOARD,
+  answerText, ask, cantRun, cardOf, folderOf, hooksPathFor, stepSchema, loadContext, REFERENCES, runStory, SKILL_HOOKS, SKILL_STORYBOARD,
   startStory, storyboardPathFor, system, usageOf, wouldReplace, type Context, type Row,
 } from '../netlify/lib/story';
 
@@ -136,7 +136,8 @@ const idea = (db: FakeDb) => db.t.ideas.find(i => i.id === 'two-pm')!;
   check('run: job done with what it made and the cost', job(db).step === 'done' && /1 hooks and a 2-beat storyboard\. Placed take #3\. \(about 34¢\)/.test(String(job(db).message)), job(db).message);
   check('run: the prompt carries the card, the format brief and her take', calls[0].prompt.includes('The story: ...') && calls[0].prompt.includes('beat table') && calls[0].prompt.includes('Tools do not fix process'));
   check('run: the storyboard step gets the new hooks', calls[1].prompt.includes('Done by 2pm?'));
-  check('run: each step uses its own skill', calls[0].system.includes(`body of ${SKILL_HOOKS}`) && !calls[0].system.includes(`body of ${SKILL_STORYBOARD}`) && calls[1].system.includes(`body of ${SKILL_STORYBOARD}`));
+  check('run: each step carries its own skill', calls[0].prompt.includes(`body of ${SKILL_HOOKS}`) && !calls[0].prompt.includes(`body of ${SKILL_STORYBOARD}`) && calls[1].prompt.includes(`body of ${SKILL_STORYBOARD}`));
+  check('run: both steps send the same system prompt (one cache)', calls[0].system === calls[1].system && !calls[0].system.includes(SKILL_HOOKS) && !calls[0].system.includes(SKILL_STORYBOARD));
   // A second call for the same job does nothing: the claim only moves a queued job.
   const before = JSON.stringify(db.t);
   const again = fakeAsk([]);
@@ -178,9 +179,9 @@ const idea = (db: FakeDb) => db.t.ideas.find(i => i.id === 'two-pm')!;
 { // 6. The prompt follows the writing guide.
   const db = freshDb();
   const ctx = await loadContext(sb(db), 'two-pm');
-  const text = system(ctx, 'hooks').map(b => b.text).join('');
+  const text = system(ctx).map(b => b.text).join('');
   check('prompt: the frame has no em dash or double hyphen', !/—|--/.test(text.split('<doc')[0]));
-  check('prompt: references are cached as one prefix for both steps', system(ctx, 'hooks')[0].text === system(ctx, 'storyboard')[0].text);
+  check('prompt: one cached system block', system(ctx).length === 1 && !!system(ctx)[0].cache_control);
 }
 
 { // 7. (review M2) She picks her own hook while the hooks are being written: it stops and leaves her pick alone.
@@ -243,10 +244,38 @@ const idea = (db: FakeDb) => db.t.ideas.find(i => i.id === 'two-pm')!;
   check('oversized: failed, idea untouched', job(db).step === 'failed' && (idea(db).hooks as unknown[]).length === 0 && /too long/.test(String(job(db).message)));
 }
 
+{ // 15. (MQ's test 11/22) She picks a hook while the storyboard is being written: it saves, and her pick stays.
+  const db = freshDb();
+  const { f } = fakeAsk([{ out: HOOKS, refused: null, usage: U }, { out: BOARD, refused: null, usage: U }]);
+  let n = 0;
+  const wrapped = (async (...a: Parameters<typeof f>) => { if (n++ === 1) { const x = idea(db); x.chosen = '0'; x.updated_at = db.stamp(); } return f(...a); }) as typeof f;
+  await runStory(sb(db), JOB, wrapped, {} as never);
+  check('pick mid-storyboard: storyboard saved, pick kept', job(db).step === 'done' && (idea(db).beats as unknown[]).length === 2 && idea(db).chosen === '0', { step: job(db).step, msg: job(db).message });
+}
+{ // 16. Storyboard only: builds on her hooks and her pick; no hooks call, no hooks written.
+  const db = freshDb({ hooks: [{ spoken: 'Old A', onscreen: '', frame: '', format: 'question', payoff: '', rec: false }, { spoken: 'Old B', onscreen: '', frame: '', format: 'stakes', payoff: '', rec: true }], chosen: '1' });
+  db.t.jobs[0].options = { mode: 'storyboard' };
+  const { f, calls } = fakeAsk([{ out: BOARD, refused: null, usage: U }]);
+  await runStory(sb(db), JOB, f, {} as never);
+  check('storyboard only: one call, the storyboard skill', calls.length === 1 && calls[0].prompt.includes(`body of ${SKILL_STORYBOARD}`));
+  check('storyboard only: told which hook she picked', calls[0].prompt.includes('She picked option 2: "Old B"'));
+  check('storyboard only: her hooks and pick untouched, storyboard saved', (idea(db).hooks as Row[])[1].spoken === 'Old B' && idea(db).chosen === '1' && (idea(db).beats as unknown[]).length === 2 && job(db).step === 'done', job(db).message);
+  check('storyboard only: no hooks doc', !db.t.docs.some(d => d.kind === 'hooks'));
+}
+{ // 17. Her take written in the angle reaches the prompt as her words.
+  const db = freshDb({ summary: 'An office worker automated a workflow.\n----\nmy take: protect yourself if they do not trust you', take_n: null });
+  const ctx = await loadContext(sb(db), 'two-pm');
+  const { storyboardPrompt } = await import('../netlify/lib/story');
+  const p = storyboardPrompt(ctx, []);
+  check('angle take: flagged as her words, no "waiting"', /Her take is in the angle/.test(p) && !/none yet/.test(p) && p.includes('protect yourself'));
+  check('angle take: script asks for the read-aloud text and her talking points', /as written in the card's "The story"/.test(p) && /talking points/.test(p));
+}
+
 /* ---------- The real `ask`, against a fake SDK client ---------- */
 const client = (msg: Row, seen?: { params?: Row; opts?: Row }) => ({ beta: { messages: { stream: (params: Row, opts: Row) => { if (seen) { seen.params = params; seen.opts = opts; } return { finalMessage: async () => msg }; } } } }) as never;
-const schema = hooksSchema(['question']);
-const good = JSON.stringify({ stop: null, hooks: [{ spoken: 'a', onscreen: 'b', frame: 'c', format: 'question', payoff: 'd', rec: true }], hooks_markdown: '#', note: '' });
+const schema = stepSchema(['question']);
+const good = JSON.stringify({ stop: null, hooks: [{ spoken: 'a', onscreen: 'b', frame: 'c', format: 'question', payoff: 'd', rec: true }], hooks_markdown: '#',
+  beats: [], look: { setup: '', outfit: '', location: '', props: '', edit: '' }, script: [], prep: [], storyboard_markdown: '', note: '' });
 const base = { usage: { input_tokens: 1000, output_tokens: 2000, cache_creation_input_tokens: 30000, cache_read_input_tokens: 0 } };
 {
   const seen: { params?: Row; opts?: Row } = {};
@@ -284,6 +313,15 @@ check('answerText: only after the last fallback', answerText([{ type: 'text', te
 check('usageOf: unknown model priced high, not low', usageOf({ iterations: [{ model: 'claude-mystery', input_tokens: 1e6, output_tokens: 0 }] }).cents === 500);
 
 /* ---------- Starting a run ---------- */
+{
+  const db = freshDb({ hooks: [{ spoken: 'A', onscreen: '', frame: '', format: 'question', payoff: '', rec: false }], chosen: '0' });
+  db.t.jobs = [];
+  const r = await startStory(sb(db), 'two-pm', false, async () => true, 'storyboard');
+  check('start storyboard only: no replace prompt for her pick', r.status === 202 && (db.t.jobs[0].options as Row).mode === 'storyboard');
+  const db2 = freshDb(); db2.t.jobs = [];
+  const r2 = await startStory(sb(db2), 'two-pm', false, async () => true, 'storyboard');
+  check('start storyboard only: needs hooks first', r2.status === 400);
+}
 {
   const db = freshDb({ chosen: '1' });
   db.t.jobs = [];

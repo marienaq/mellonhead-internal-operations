@@ -83,35 +83,36 @@ export function cantRun(ctx: Context): string | null {
 }
 
 /** What she'd lose if it ran: her picked hook, her own script lines, an existing storyboard. */
-export function wouldReplace(i: Row): string[] {
+export function wouldReplace(i: Row, mode: 'both' | 'storyboard' = 'both'): string[] {
   const out: string[] = [];
-  if (i.chosen !== null && i.chosen !== undefined) out.push('the hook you picked');
+  if (mode === 'both' && i.chosen !== null && i.chosen !== undefined) out.push('the hook you picked');
   if (((i.script as { d?: boolean }[] | null) ?? []).some(l => !l.d)) out.push('script lines you wrote');
   if (((i.beats as unknown[] | null) ?? []).length) out.push('the storyboard beats');
-  else if (((i.hooks as unknown[] | null) ?? []).length) out.push('the hooks');
+  else if (mode === 'both' && ((i.hooks as unknown[] | null) ?? []).length) out.push('the hooks');
   return out;
 }
 
 /* ---------- Prompts ---------- */
 const doc = (d: Row) => `<doc path="${d.path}" kind="${d.kind}">\n${d.body}\n</doc>`;
 
-const FRAME = `You are running inside the backend of Mellonhead's content planning app, doing the work of one of the TikTok pipeline's skills for a single idea that Mariena (MQ) asked for by tapping a button.
+const FRAME = `You are running inside the backend of Mellonhead's content planning app, doing the work of one of the TikTok pipeline's skills for a single idea that Mariena (MQ) asked for by tapping a button. The skill for this step is at the top of the message.
 
 How this differs from running the skill in Claude Code:
-- You can't read or write files, run commands, post to Slack, or dispatch other agents. Everything you can use is in this prompt. Paths in the skill refer to the docs below by their path attribute.
+- You can't read or write files, run commands, post to Slack, or dispatch other agents. Everything you can use is in this prompt. Paths in the skill refer to the docs here by their path attribute.
 - Where the skill says to write a file, put that file's full content in the matching field of your answer; the app saves it.
 - Where the skill says to stop and report back to Orca (no story text, a deleted source, a check only she can make), set "stop" with a one-line reason she can act on, and leave the other fields empty.
+- Your answer has fields for both steps (hooks, then storyboard). Fill only this step's fields and leave the other step's empty: empty lists, empty strings, and blank look fields.
+- Her words: her take can be a take from her bank, or written into the idea's angle (after "my take:"), often a transcript of her talking. Either way it is her draft: place it the way the skill's "Place the take" says. Never add opinions she didn't give.
 - Where the skill relies on something this prompt doesn't include, work from what is here and say what was missing in "note". Never invent her words, her take, or facts about the story.
 - Client stories stay blinded: never name a client, a company she worked with, or a real person from a blinded story.
 - Write to the writing guide: no em dashes and no double hyphens anywhere.
 
-The reference docs follow; the skill for this step comes after them.`;
+The reference docs follow.`;
 
-export function system(ctx: Context, step: 'hooks' | 'storyboard'): Anthropic.Beta.Messages.BetaTextBlockParam[] {
-  return [
-    { type: 'text', text: `${FRAME}\n\n${ctx.references.map(doc).join('\n\n')}`, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: `The skill for this step:\n\n${doc(ctx.skills[step])}`, cache_control: { type: 'ephemeral' } },
-  ];
+/** The same for both steps, so the long reference docs are cached once and read cheaply by the second call. Each
+ * step's skill goes in the message instead, after the cached part. */
+export function system(ctx: Context): Anthropic.Beta.Messages.BetaTextBlockParam[] {
+  return [{ type: 'text', text: `${FRAME}\n\n${ctx.references.map(doc).join('\n\n')}`, cache_control: { type: 'ephemeral' } }];
 }
 
 function ideaFacts(ctx: Context): string {
@@ -126,7 +127,10 @@ function ideaFacts(ctx: Context): string {
     notes: (i.notes as unknown[] | null)?.length ? i.notes : undefined,
   };
   const parts = [`The idea (from the app; fields listed in drafted_fields were filled by an agent and she hasn't confirmed them):\n${JSON.stringify(facts, null, 1)}`];
-  parts.push(ctx.take ? `Her take #${ctx.take.n} (her words): ${ctx.take.text}\nOn camera: ${ctx.take.on_camera}` : 'Her take: none yet (waiting).');
+  const inAngle = /my take\s*:/i.test(String(i.summary ?? ''));
+  if (inAngle) parts.push('Her take is in the angle above, after "my take:". Those are her words (spoken, so trim filler, but keep her meaning and phrasing).');
+  if (ctx.take) parts.push(`Her take #${ctx.take.n} from her bank${(i.drafted as string[] | null)?.includes('take') ? ' (picked by an agent, not confirmed by her)' : ''}: ${ctx.take.text}\nOn camera: ${ctx.take.on_camera}`);
+  else if (!inAngle) parts.push('Her take: none yet (waiting).');
   if (ctx.story) parts.push(`Story from her bank, "${ctx.story.title}" (on camera: ${ctx.story.on_camera}). Known: ${ctx.story.known}. Missing: ${ctx.story.missing}`);
   else if (i.no_story) parts.push('Story from her bank: none (she decided it does not need one).');
   if (ctx.card) parts.push(`The story card:\n${doc(ctx.card)}`);
@@ -136,19 +140,30 @@ function ideaFacts(ctx: Context): string {
   return parts.join('\n\n');
 }
 
+const skillFor = (ctx: Context, step: 'hooks' | 'storyboard') => `The skill for this step:\n${doc(ctx.skills[step])}`;
+
 export function hooksPrompt(ctx: Context): string {
-  return `${ideaFacts(ctx)}\n\nWrite this idea's hook options, following the skill. Return the hooks file's full text in hooks_markdown as well as each option in hooks.`;
+  return `${skillFor(ctx, 'hooks')}\n\n${ideaFacts(ctx)}\n\nThis step: hooks. Write this idea's hook options, following the skill. Return the hooks file's full text in hooks_markdown as well as each option in hooks.`;
 }
 
-export function storyboardPrompt(ctx: Context, hooks: Hook[]): string {
-  const h = hooks.length ? `The hook options for this episode (just written by the hooks step):\n${JSON.stringify(hooks, null, 1)}` : 'No hook options came back from the hooks step.';
-  return `${ideaFacts(ctx)}\n\n${h}\n\nWrite this episode's storyboard, following the skill. Return the storyboard file's full text in storyboard_markdown, and also the parts the app shows on its own: the beats in order, the look, the script lines (only lines the skill would have her say; a line that needs her words gets a short note in "needs_her"), and a short prep list.`;
+export function storyboardPrompt(ctx: Context, hooks: Hook[], chosen: string | null = null, ownHook: string | null = null): string {
+  const pickedText = chosen === 'own' && ownHook ? `She wrote her own hook: "${ownHook}". It goes in row 1.`
+    : chosen !== null && hooks[Number(chosen)] ? `She picked option ${Number(chosen) + 1}: "${hooks[Number(chosen)].spoken}". It goes in row 1.`
+    : 'She has not picked a hook yet.';
+  const h = hooks.length ? `The hook options for this episode:\n${JSON.stringify(hooks, null, 1)}\n${pickedText}` : 'There are no hook options yet.';
+  return `${skillFor(ctx, 'storyboard')}\n\n${ideaFacts(ctx)}\n\n${h}\n\nThis step: storyboard. Write this episode's storyboard, following the skill and the format's beat table. Return the storyboard file's full text in storyboard_markdown, and also the parts the app shows on its own:
+- beats: the beat table's rows in order, one line each.
+- script: what she says on camera, in order, one entry per line or short passage. Where the format has her read the post or letter, include that text as written in the card's "The story" (trimmed and anonymized as the skill and the format say). Her own beats (reaction, advice) come from her take, in her words, as short talking points. A beat of hers with nothing from her yet is one entry with the placeholder text and a short note in needs_her saying what her words would add.
+- look and a short prep list.`;
 }
 
 /* ---------- Answers ---------- */
 const Stop = z.object({ reason: z.enum(['no-story', 'story-partial', 'source-gone', 'confirm', 'other']), message: z.string() }).nullable();
+export type Hook = { spoken: string; onscreen: string; frame: string; format: string; payoff: string; rec: boolean };
 
-export function hooksSchema(formats: string[]) {
+/** One answer shape for both steps (each fills its own fields), so the request's format, and with it the cached
+ * prefix, is identical across the two calls. */
+export function stepSchema(formats: string[]) {
   return z.object({
     stop: Stop,
     hooks: z.array(z.object({
@@ -157,20 +172,14 @@ export function hooksSchema(formats: string[]) {
       payoff: z.string(), rec: z.boolean(),
     })),
     hooks_markdown: z.string(),
+    beats: z.array(z.object({ t: z.string(), gap: z.string().nullable(), waiting_on: z.string().nullable() })),
+    look: z.object({ setup: z.string(), outfit: z.string(), location: z.string(), props: z.string(), edit: z.string() }),
+    script: z.array(z.object({ t: z.string(), needs_her: z.string().nullable() })),
+    prep: z.array(z.string()),
+    storyboard_markdown: z.string(),
     note: z.string(),
   });
 }
-export type Hook = { spoken: string; onscreen: string; frame: string; format: string; payoff: string; rec: boolean };
-
-export const StoryboardSchema = z.object({
-  stop: Stop,
-  beats: z.array(z.object({ t: z.string(), gap: z.string().nullable(), waiting_on: z.string().nullable() })),
-  look: z.object({ setup: z.string(), outfit: z.string(), location: z.string(), props: z.string(), edit: z.string() }),
-  script: z.array(z.object({ t: z.string(), needs_her: z.string().nullable() })),
-  prep: z.array(z.string()),
-  storyboard_markdown: z.string(),
-  note: z.string(),
-});
 
 /* ---------- One call to Claude ---------- */
 export type Usage = { input: number; output: number; cacheWrite: number; cacheRead: number; cents: number; models: string[] };
@@ -288,19 +297,20 @@ export const LIVE = ['queued', 'hooks', 'storyboard'];
 export const STALE_MS = 16 * 60 * 1000;
 
 export type Started = { status: number; body: Record<string, unknown> };
-export async function startStory(sb: SupabaseClient, ideaId: string, replace: boolean, launch: (jobId: string) => Promise<boolean>): Promise<Started> {
+export async function startStory(sb: SupabaseClient, ideaId: string, replace: boolean, launch: (jobId: string) => Promise<boolean>, mode: 'both' | 'storyboard' = 'both'): Promise<Started> {
   let ctx: Context;
   try { ctx = await loadContext(sb, ideaId); } catch (e) { return { status: 404, body: { error: (e as Error).message } }; }
   const why = cantRun(ctx);
   if (why) return { status: 400, body: { error: why } };
-  const lose = wouldReplace(ctx.idea);
+  if (mode === 'storyboard' && !((ctx.idea.hooks as unknown[] | null) ?? []).length) return { status: 400, body: { error: 'It needs hooks first.' } };
+  const lose = wouldReplace(ctx.idea, mode);
   if (lose.length && !replace) return { status: 409, body: { confirm: `This replaces ${lose.join(' and ')}.` } };
 
   // Clear out a run that died without finishing, so it doesn't block this one.
   await sb.from('jobs').update({ step: 'failed', message: 'It stopped without finishing (ran out of time).', finished_at: new Date().toISOString() })
     .eq('idea_id', ideaId).in('step', LIVE).lt('updated_at', new Date(Date.now() - STALE_MS).toISOString()).select('id');
 
-  const ins = await sb.from('jobs').insert({ kind: 'story', idea_id: ideaId, options: { replace } }).select('id').single();
+  const ins = await sb.from('jobs').insert({ kind: 'story', idea_id: ideaId, options: { replace, mode } }).select('id').single();
   if (ins.error) {
     if (ins.error.code === '23505') return { status: 409, body: { error: "It's already working on this idea." } };
     return { status: 403, body: { error: "Couldn't start it." } };
@@ -315,10 +325,8 @@ export async function startStory(sb: SupabaseClient, ideaId: string, replace: bo
 
 /* ---------- The whole run (the background function calls this; tests pass a fake `ask`) ---------- */
 /** What only she changes while it runs. If any of it changes mid-run, the run stops rather than overwrite it. */
-const hers = (r: Row) => JSON.stringify({
-  chosen: r.chosen ?? null, own: r.own_hook ?? null,
-  lines: ((r.script as { t: string; d?: boolean }[] | null) ?? []).filter(l => !l.d).map(l => l.t),
-});
+const herPick = (r: Row) => JSON.stringify({ chosen: r.chosen ?? null, own: r.own_hook ?? null });
+const herLines = (r: Row) => JSON.stringify(((r.script as { t: string; d?: boolean }[] | null) ?? []).filter(l => !l.d).map(l => l.t));
 class EditedWhileRunning extends Error {}
 class OutOfTime extends Error {}
 const BUDGET_MS = 13 * 60 * 1000; // both calls and the saves, inside Netlify's 15 minutes
@@ -344,28 +352,35 @@ export async function runStory(sb: SupabaseClient, jobId: string, askFn: Ask = a
   try {
     client ??= new Anthropic(); // ANTHROPIC_API_KEY from the environment
     const ctx = await loadContext(sb, ideaId);
-    const formats = (((ctx.config?.opts as Row | undefined)?.hookFormat as string[] | undefined) ?? []);
-    let snap = hers(ctx.idea);
+    const schema = stepSchema((((ctx.config?.opts as Row | undefined)?.hookFormat as string[] | undefined) ?? []));
+    const storyboardOnly = (job.options as Row | null)?.mode === 'storyboard';
+    let hooks = (ctx.idea.hooks as Hook[] | null) ?? [];
+    let chosen = (ctx.idea.chosen as string | null) ?? null, ownHook = (ctx.idea.own_hook as string | null) ?? null;
 
-    /* 1. Hooks */
-    const h = await askFn(client, system(ctx, 'hooks'), hooksPrompt(ctx), hooksSchema(formats), left());
-    usage.hooks = h.usage;
-    if (h.refused) return await finish('stopped', h.refused);
-    if (h.out!.stop) return await finish('stopped', h.out!.stop.message);
-    const hooks = h.out!.hooks as Hook[];
-    checkSize('hooks', hooks);
-    if (h.out!.hooks_markdown.length > MAX_DOC) throw new Error('The hooks file came back too long to save.');
-    // The idea first: if she edited it meanwhile, this stops before anything is saved.
-    const after = await guarded(sb, 'ideas', ideaId, 'id', row => {
-      if (hers(row) !== snap) throw new EditedWhileRunning();
-      return { hooks, chosen: null, own_hook: null, rehook: null };
-    }) as Row;
-    snap = hers(after);
-    await saveDoc(sb, hooksPathFor(ctx), 'hooks', `Hooks: ${ctx.idea.title}`, h.out!.hooks_markdown, ideaId);
-    await setJob(sb, jobId, { step: 'storyboard', message: `${hooks.length} hooks written.`, usage });
+    /* 1. Hooks (skipped when she asked for the storyboard only: it builds on the hooks she has) */
+    if (!storyboardOnly) {
+      const pick0 = herPick(ctx.idea);
+      const h = await askFn(client, system(ctx), hooksPrompt(ctx), schema, left());
+      usage.hooks = h.usage;
+      if (h.refused) return await finish('stopped', h.refused);
+      if (h.out!.stop) return await finish('stopped', h.out!.stop.message);
+      hooks = h.out!.hooks as Hook[];
+      checkSize('hooks', hooks);
+      if (h.out!.hooks_markdown.length > MAX_DOC) throw new Error('The hooks file came back too long to save.');
+      // The idea first: if she picked or wrote a hook meanwhile, this stops before anything is saved.
+      await guarded(sb, 'ideas', ideaId, 'id', row => {
+        if (herPick(row) !== pick0) throw new EditedWhileRunning();
+        return { hooks, chosen: null, own_hook: null, rehook: null };
+      });
+      chosen = null; ownHook = null;
+      await saveDoc(sb, hooksPathFor(ctx), 'hooks', `Hooks: ${ctx.idea.title}`, h.out!.hooks_markdown, ideaId);
+    }
+    await setJob(sb, jobId, { step: 'storyboard', message: storyboardOnly ? 'Writing the storyboard.' : `${hooks.length} hooks written.`, usage });
 
-    /* 2. Storyboard */
-    const s = await askFn(client, system(ctx, 'storyboard'), storyboardPrompt(ctx, hooks), StoryboardSchema, left());
+    /* 2. Storyboard. Picking a hook meanwhile is fine (the storyboard doesn't touch it); only her own script
+     * lines, typed while it ran, stop it. */
+    const lines0 = herLines(ctx.idea);
+    const s = await askFn(client, system(ctx), storyboardPrompt(ctx, hooks, chosen, ownHook), schema, left());
     usage.storyboard = s.usage;
     if (s.refused) return await finish('stopped', `Hooks are in; the storyboard stopped: ${s.refused}`);
     if (s.out!.stop) return await finish('stopped', `Hooks are in; the storyboard stopped: ${s.out!.stop.message}`);
@@ -375,16 +390,16 @@ export async function runStory(sb: SupabaseClient, jobId: string, askFn: Ask = a
     checkSize('storyboard', { beats, look: o.look, script, prep: o.prep });
     if (o.storyboard_markdown.length > MAX_DOC) throw new Error('The storyboard file came back too long to save.');
     await guarded(sb, 'ideas', ideaId, 'id', row => {
-      if (hers(row) !== snap) throw new EditedWhileRunning();
+      if (herLines(row) !== lines0) throw new EditedWhileRunning();
       const drafted = new Set((row.drafted as string[] | null) ?? []);
       for (const k of ['setup', 'outfit', 'location', 'props', 'edit']) drafted.add(`look.${k}`);
       return { beats, look: o.look, script, prep: o.prep, prep_done: [], drafted: [...drafted] };
     });
     await saveDoc(sb, storyboardPathFor(ctx), 'storyboard', `Storyboard: ${ctx.idea.title}`, o.storyboard_markdown, ideaId);
     const cents = Object.values(usage).reduce((a, u) => a + u.cents, 0);
-    await finish('done', `${hooks.length} hooks and a ${beats.length}-beat storyboard.${o.note ? ` ${o.note}` : ''} (about ${cents}¢)`);
+    await finish('done', `${storyboardOnly ? 'A' : `${hooks.length} hooks and a`} ${beats.length}-beat storyboard.${o.note ? ` ${o.note}` : ''} (about ${cents}¢)`);
   } catch (e) {
-    const msg = e instanceof EditedWhileRunning ? 'You changed your hook pick, your own hook or script lines while it ran, so it stopped without touching them. Run it again when you are ready.'
+    const msg = e instanceof EditedWhileRunning ? 'You changed this idea while it ran (a hook pick before the hooks were saved, or script lines of your own), so it stopped without touching them. Run it again when you are ready.'
       : e instanceof OutOfTime || e instanceof Anthropic.APIConnectionTimeoutError || e instanceof Anthropic.APIUserAbortError || (e as Error)?.name === 'TimeoutError' ? 'It ran out of time. Try again.'
       : e instanceof Anthropic.AuthenticationError ? "The server's Anthropic key was refused."
       : e instanceof Anthropic.RateLimitError ? 'Claude is busy right now. Try again in a minute.'

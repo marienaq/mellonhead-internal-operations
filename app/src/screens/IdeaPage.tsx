@@ -9,14 +9,15 @@ import { Icon, NeedsTag, PEG, ProtoBar, Sheet, WaitingTag, asset } from '../comp
 
 /* "Make hooks and storyboard": the app's backend runs the pipeline's hooks and storyboard skills for this idea
  * (netlify/functions/story-*). The page watches the job and reloads the idea as each part is saved. */
-type Job = { step: string; message: string; updated_at: string };
+type Job = { step: string; message: string; updated_at: string; started_at: string | null; created_at: string };
 const LIVE = ['queued', 'hooks', 'storyboard'];
 // A run can't last longer than this (the server's limit); one older than this died without saying so.
 const STALE_MS = 16 * 60 * 1000;
 const isLive = (j: Job | null) => !!j && LIVE.includes(j.step) && Date.now() - Date.parse(j.updated_at) < STALE_MS;
 const STEP_TEXT: Record<string, string> = {
-  queued: 'Starting…', hooks: 'Writing hooks… (a minute or two)', storyboard: 'Hooks are in. Writing the storyboard…',
+  queued: 'Starting…', hooks: 'Writing hooks…', storyboard: 'Writing the storyboard…',
 };
+const mmss = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const hasMaterial = (i: Idea) => !!i.brief.trim() || !!i.summary.trim() || i.links.some(l => /\/stories\/[^/]+\.md$/.test(l.url));
 
 function MakeStory({ i }: { i: Idea }) {
@@ -24,11 +25,12 @@ function MakeStory({ i }: { i: Idea }) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [watch, setWatch] = useState(0);
+  const [, setTick] = useState(0); // redraws the elapsed time each second while it runs
   useEffect(() => {
     if (!sb) return;
     let stopped = false, last = '', timer: ReturnType<typeof setTimeout> | undefined;
     const tick = async () => {
-      const { data, error } = await sb!.from('jobs').select('step, message, updated_at').eq('idea_id', i.id).eq('kind', 'story')
+      const { data, error } = await sb!.from('jobs').select('step, message, updated_at, started_at, created_at').eq('idea_id', i.id).eq('kind', 'story')
         .order('created_at', { ascending: false }).limit(1);
       if (stopped) return;
       if (error) { timer = setTimeout(() => { void tick(); }, 5000); return; } // offline for a moment: keep what's shown, try again
@@ -43,33 +45,45 @@ function MakeStory({ i }: { i: Idea }) {
     return () => { stopped = true; clearTimeout(timer); };
   }, [i.id, watch]);
 
-  if (!remoteEnabled || !i.channels.includes('TikTok') || !hasMaterial(i)) return null;
   const live = isLive(job);
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [live]);
+  if (!remoteEnabled || !i.channels.includes('TikTok') || !hasMaterial(i)) return null;
+  const hasHooks = i.hooks.length > 0, hasBoard = i.beats.length > 0;
 
-  async function start(replace: boolean) {
+  async function start(replace: boolean, mode: 'both' | 'storyboard') {
     setBusy(true); setConfirm(null);
     try {
       // A fresh token: the background work can take several minutes.
       const { data } = await sb!.auth.refreshSession();
       const token = data.session?.access_token;
       if (!token) { toast('Sign in again first.'); return; }
-      const res = await fetch('/api/story', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ ideaId: i.id, replace }) });
+      const res = await fetch('/api/story', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ ideaId: i.id, replace, mode }) });
       const body = await res.json().catch(() => ({})) as { confirm?: string; error?: string };
-      if (res.status === 409 && body.confirm) { setConfirm(body.confirm); return; }
+      if (res.status === 409 && body.confirm) { setConfirm(`${mode}|${body.confirm}`); return; }
       if (!res.ok) { toast(body.error || "Couldn't start it."); return; }
       setWatch(w => w + 1);
     } catch { toast("Couldn't reach the server."); }
     finally { setBusy(false); }
   }
 
+  const [cMode, cText] = confirm ? confirm.split(/\|(.*)/s) : ['', ''];
+  const since = job ? Date.parse(job.started_at ?? job.created_at) : 0;
   return <div className="card make-story" style={{ padding: '12px 14px' }} aria-live="polite">
     {confirm
-      ? <><p>{confirm} Go ahead?</p><div className="sheet-actions"><button className="btn primary" disabled={busy} onClick={() => { void start(true); }}>Replace them</button><button className="btn" onClick={() => setConfirm(null)}>Keep what's here</button></div></>
+      ? <><p>{cText} Go ahead?</p><div className="sheet-actions"><button className="btn primary" disabled={busy} onClick={() => { void start(true, cMode as 'both' | 'storyboard'); }}>Replace them</button><button className="btn" onClick={() => setConfirm(null)}>Keep what's here</button></div></>
       : live
-        ? <p><strong>{STEP_TEXT[job!.step]}</strong> <span className="muted small">It fills in below as each part is saved.</span></p>
+        ? <><p><strong>{STEP_TEXT[job!.step]}</strong> <span className="num">{mmss(Date.now() - since)}</span></p>
+          <p className="muted small">Hooks take about a minute and a half, the storyboard about two more. It runs on the server: you can leave this page or close the app, and it keeps going. It fills in below as each part is saved. If something goes wrong it says so here; it never runs past 15 minutes.</p></>
         : <>{job && <p className={job.step === 'done' ? '' : 'muted'}>{job.step === 'done' ? 'Last run: ' : job.step === 'stopped' ? 'Stopped: ' : "Didn't finish: "}{LIVE.includes(job.step) ? 'It stopped without finishing (ran out of time).' : job.message}</p>}
-          <button className="btn primary" disabled={busy} onClick={() => { void start(false); }}>{busy ? 'Starting…' : job ? 'Make hooks and storyboard again' : 'Make hooks and storyboard'}</button>
-          <p className="muted small" style={{ marginTop: 6 }}>Writes hook options, then a storyboard from the brief and the card. The script lines and the look show as drafted, and no hook is picked for you.</p></>}
+          <div className="sheet-actions" style={{ justifyContent: 'flex-start' }}>
+            {hasHooks && <button className="btn primary" disabled={busy} onClick={() => { void start(false, 'storyboard'); }}>{busy ? 'Starting…' : hasBoard ? 'Redo the storyboard' : 'Make the storyboard'}</button>}
+            <button className={`btn ${hasHooks ? '' : 'primary'}`} disabled={busy} onClick={() => { void start(false, 'both'); }}>{busy && !hasHooks ? 'Starting…' : hasHooks ? 'Redo hooks and storyboard' : 'Make hooks and storyboard'}</button>
+          </div>
+          <p className="muted small" style={{ marginTop: 6 }}>{hasHooks ? 'The storyboard uses the hook you picked, the card, and your take (from your bank or the angle).' : 'Writes hook options, then a storyboard from the card, the brief and your take.'} Script lines and the look show as drafted.</p></>}
   </div>;
 }
 
