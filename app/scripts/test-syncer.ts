@@ -373,5 +373,24 @@ const idea = (db: FakeDb) => db.t('ideas').get(id)!;
   check('look: no clash reported', !a.log.conflicts.some(c => c), JSON.stringify(a.log.conflicts));
 }
 
+{ // 25. (story review M3) New hooks land from the backend while she picks from the old list: the pick is dropped, she's told.
+  const d0 = structuredClone(base); const i0 = d0.ideas.find(i => i.id === id)!; i0.hooks = [{ spoken: 'old A', onscreen: '', frame: '', format: 'question', payoff: '', rec: false }, { spoken: 'old B', onscreen: '', frame: '', format: 'question', payoff: '', rec: false }]; i0.chosen = null;
+  const { db, stamps } = freshDb(d0); const a = device(d0, stamps, db);
+  const row = db.t('ideas').get(id)!; row.hooks = [{ spoken: 'new A', onscreen: '', frame: '', format: 'stakes', payoff: '', rec: true }]; row.chosen = null; row.updated_at = db.stamp();
+  a.change(x => { x.ideas.find(i => i.id === id)!.chosen = 1; });
+  await settle(a);
+  const r = idea(db);
+  check('stale pick: not written', r.chosen === null && r.hooks[0].spoken === 'new A', JSON.stringify({ chosen: r.chosen, h: r.hooks[0].spoken }));
+  check('stale pick: she is told', a.log.errors.some(e => /hooks changed while you picked/.test(e)), JSON.stringify(a.log.errors));
+}
+{ // 26. Hooks unchanged elsewhere: her pick saves as usual, even when another column changed.
+  const d0 = structuredClone(base); const i0 = d0.ideas.find(i => i.id === id)!; i0.hooks = [{ spoken: 'A', onscreen: '', frame: '', format: 'question', payoff: '', rec: false }]; i0.chosen = null;
+  const { db, stamps } = freshDb(d0); const a = device(d0, stamps, db);
+  const row = db.t('ideas').get(id)!; row.title = 'changed elsewhere'; row.updated_at = db.stamp();
+  a.change(x => { x.ideas.find(i => i.id === id)!.chosen = 0; });
+  await settle(a);
+  check('fresh pick: saved', idea(db).chosen === '0', String(idea(db).chosen));
+}
+
 console.log(failures ? `\n${failures} failed` : '\nAll passed');
 process.exit(failures ? 1 : 0);

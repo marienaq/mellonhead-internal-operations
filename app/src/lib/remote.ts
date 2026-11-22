@@ -161,6 +161,10 @@ const APPEND_COLS = new Set(['notes', 'channels', 'links', 'inner_world', 'draft
 const KEYED_COLS = new Set(['look']);
 /** Columns that are one fact together: written together, so a merge can't combine one side's half with the other's. */
 const COUPLED: string[][] = [['story_key', 'no_story']];
+/** A column whose value only means something against another: a hook pick is an index into the hooks. If the other
+ * column changed elsewhere since this tab loaded it (an agent or the app's backend wrote new hooks), her write to
+ * this one is dropped and she's told, so a pick never lands on a different hook than the one she tapped. */
+const DEPENDS: Record<string, string> = { chosen: 'hooks' };
 
 /** JSON with object keys sorted, so jsonb from Postgres (which reorders keys) compares equal to the same value here. */
 export function canon(v: unknown): string {
@@ -240,6 +244,12 @@ export function makeSyncer(initial: Data, initialStamps: Stamps, hooks: SyncHook
     const final: Row = {};
     let clash = false;
     for (const c of Object.keys(cols)) {
+      const dep = DEPENDS[c];
+      if (dep && base && !same(cur[dep], base[dep]) && !same(cols[c], cur[c])) {
+        final[c] = cur[c];
+        hooks.onRefused(`Your hook pick on ${label(t, k, row)} didn't save: the hooks changed while you picked. Pick again`);
+        continue;
+      }
       if (SET_COLS.has(c) || APPEND_COLS.has(c)) final[c] = mergeList(c, base?.[c], cols[c], cur[c]);
       else if (KEYED_COLS.has(c) && isPlain(cols[c]) && isPlain(cur[c])) {
         const b = isPlain(base?.[c]) ? base![c] as Row : {}, m = cols[c] as Row, th = cur[c] as Row;

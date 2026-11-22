@@ -1,10 +1,17 @@
 # Netlify: builds the app in app/ and serves it as a static site.
 # Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Netlify's environment variables (the publishable key
-# is safe in a browser; row-level security protects the data). The secret key never goes to Netlify.
+# is safe in a browser; row-level security protects the data).
+# Functions (app/netlify/functions) run as the signed-in user: they forward her sign-in token to Supabase, so the
+# same row rules apply and no Supabase secret key is needed on the server. Their one secret is ANTHROPIC_API_KEY,
+# set in Netlify with the "Functions" scope only (never with a VITE_ prefix, which would put it in the browser bundle).
 [build]
   base = "app"
   command = "npm ci && npm run build"
   publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [build.environment]
   NODE_VERSION = "22"

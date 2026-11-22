@@ -1,10 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { INNER_WORLD_LABEL, type Data, type Gut, type Idea, type InnerWorld, type OptKey } from '../lib/types';
 import { addDays, CUR_WEEK, md, today, wmd } from '../lib/dates';
 import { addTake, addVersion, CTA_PHRASE, DEFAULT_TIPS, FLOW, gapsOf, isRetired, LABEL, LEVEL_TEXT, LOOK, move, nextEp, nextTakeNumber, PERSONAS, personaWants, readiness, REHOOK, setField, waitsOf, NO_SERIES, inSeries, TYPE_HELP } from '../lib/logic';
-import { closeSheet, findIdea, getData, openSheet, toast, update, useStore } from '../lib/store';
+import { closeSheet, findIdea, getData, openSheet, refresh, toast, update, useStore } from '../lib/store';
+import { remoteEnabled, sb } from '../lib/remote';
 import { go } from '../lib/router';
 import { Icon, NeedsTag, PEG, ProtoBar, Sheet, WaitingTag, asset } from '../components/ui';
+
+/* "Make hooks and storyboard": the app's backend runs the pipeline's hooks and storyboard skills for this idea
+ * (netlify/functions/story-*). The page watches the job and reloads the idea as each part is saved. */
+type Job = { step: string; message: string; updated_at: string };
+const LIVE = ['queued', 'hooks', 'storyboard'];
+// A run can't last longer than this (the server's limit); one older than this died without saying so.
+const STALE_MS = 16 * 60 * 1000;
+const isLive = (j: Job | null) => !!j && LIVE.includes(j.step) && Date.now() - Date.parse(j.updated_at) < STALE_MS;
+const STEP_TEXT: Record<string, string> = {
+  queued: 'Starting…', hooks: 'Writing hooks… (a minute or two)', storyboard: 'Hooks are in. Writing the storyboard…',
+};
+const hasMaterial = (i: Idea) => !!i.brief.trim() || !!i.summary.trim() || i.links.some(l => /\/stories\/[^/]+\.md$/.test(l.url));
+
+function MakeStory({ i }: { i: Idea }) {
+  const [job, setJob] = useState<Job | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [watch, setWatch] = useState(0);
+  useEffect(() => {
+    if (!sb) return;
+    let stopped = false, last = '', timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      const { data, error } = await sb!.from('jobs').select('step, message, updated_at').eq('idea_id', i.id).eq('kind', 'story')
+        .order('created_at', { ascending: false }).limit(1);
+      if (stopped) return;
+      if (error) { timer = setTimeout(() => { void tick(); }, 5000); return; } // offline for a moment: keep what's shown, try again
+      const j = (data?.[0] as Job | undefined) ?? null;
+      setJob(j);
+      const key = j ? `${j.step}|${j.updated_at}` : '';
+      if (last && key !== last) void refresh(); // a part was saved: show it
+      last = key;
+      if (isLive(j)) timer = setTimeout(() => { void tick(); }, 3000);
+    };
+    void tick();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [i.id, watch]);
+
+  if (!remoteEnabled || !i.channels.includes('TikTok') || !hasMaterial(i)) return null;
+  const live = isLive(job);
+
+  async function start(replace: boolean) {
+    setBusy(true); setConfirm(null);
+    try {
+      // A fresh token: the background work can take several minutes.
+      const { data } = await sb!.auth.refreshSession();
+      const token = data.session?.access_token;
+      if (!token) { toast('Sign in again first.'); return; }
+      const res = await fetch('/api/story', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ ideaId: i.id, replace }) });
+      const body = await res.json().catch(() => ({})) as { confirm?: string; error?: string };
+      if (res.status === 409 && body.confirm) { setConfirm(body.confirm); return; }
+      if (!res.ok) { toast(body.error || "Couldn't start it."); return; }
+      setWatch(w => w + 1);
+    } catch { toast("Couldn't reach the server."); }
+    finally { setBusy(false); }
+  }
+
+  return <div className="card make-story" style={{ padding: '12px 14px' }} aria-live="polite">
+    {confirm
+      ? <><p>{confirm} Go ahead?</p><div className="sheet-actions"><button className="btn primary" disabled={busy} onClick={() => { void start(true); }}>Replace them</button><button className="btn" onClick={() => setConfirm(null)}>Keep what's here</button></div></>
+      : live
+        ? <p><strong>{STEP_TEXT[job!.step]}</strong> <span className="muted small">It fills in below as each part is saved.</span></p>
+        : <>{job && <p className={job.step === 'done' ? '' : 'muted'}>{job.step === 'done' ? 'Last run: ' : job.step === 'stopped' ? 'Stopped: ' : "Didn't finish: "}{LIVE.includes(job.step) ? 'It stopped without finishing (ran out of time).' : job.message}</p>}
+          <button className="btn primary" disabled={busy} onClick={() => { void start(false); }}>{busy ? 'Starting…' : job ? 'Make hooks and storyboard again' : 'Make hooks and storyboard'}</button>
+          <p className="muted small" style={{ marginTop: 6 }}>Writes hook options, then a storyboard from the brief and the card. The script lines and the look show as drafted, and no hook is picked for you.</p></>}
+  </div>;
+}
 
 /* A tappable word in the pitch paragraph. Solid underline: hers. Dashed: drafted by an agent. */
 function Bp({ i, k, text }: { i: Idea; k: string; text?: string }) {
@@ -116,6 +183,7 @@ export function IdeaPage({ id }: { id: string }) {
     </section>
 
     <section className="section" id="hooks"><h2>Hooks <span className="count-pill num">{i.hooks.length}</span></h2>
+      <MakeStory key={i.id} i={i} />
       {i.rehook && <div className="rehook" role="status"><strong><span className="rehook-badge">Re-hook needed</span></strong>
         <p>You changed the {REHOOK[i.rehook.field]} from <strong>{i.rehook.from || 'blank'}</strong> to <strong>{i.rehook.to}</strong>. Cody rebuilds the hooks on the next pass. You can still pick one of these, or write your own; either clears the flag.</p></div>}
       {i.hooks.length ? <div className="hooks">{i.hooks.map((h, n) =>
